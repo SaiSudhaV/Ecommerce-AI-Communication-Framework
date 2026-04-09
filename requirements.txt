@@ -1,1 +1,8 @@
 # Project dependencies
+pandas
+numpy
+matplotlib
+seaborn
+missingno
+hypothesis
+pytest
