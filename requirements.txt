@@ -4,5 +4,6 @@ numpy
 matplotlib
 seaborn
 missingno
+nltk
 hypothesis
 pytest
