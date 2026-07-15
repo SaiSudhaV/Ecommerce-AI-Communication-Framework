@@ -1,12 +1,33 @@
-# Project dependencies
+# Core data science
 pandas
 numpy
 matplotlib
 seaborn
-missingno
+
+# NLP
 nltk
+
+# Machine Learning
 scikit-learn
 xgboost
+
+# Hyperparameter Optimization
+optuna
+
+# Transformer Models
+sentence-transformers
+transformers
+torch
+
+# Explainable AI
+shap
+lime
+
+# Utilities
 joblib
+missingno
+scipy
+
+# Testing
 hypothesis
 pytest
