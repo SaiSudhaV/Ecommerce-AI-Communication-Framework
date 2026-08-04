@@ -1,0 +1,137 @@
+{
+  "generated_at": "2026-08-04T12:20:15.963564",
+  "pipeline_version": "1.0.0",
+  "dataset": "cumulative_ai_customer_communication_dataset.csv",
+  "target": "csat_score >= 4 (Binary Classification)",
+  "evaluation": [
+    {
+      "Model": "SVM (TF-IDF)",
+      "Accuracy": 0.8510068676521941,
+      "Precision": 0.8550715771442555,
+      "Recall": 0.986518915866742,
+      "F1-Score": 0.9161040833715671,
+      "AUC-ROC": 0.6911391672290088
+    },
+    {
+      "Model": "NB (TF-IDF)",
+      "Accuracy": 0.8497264579210801,
+      "Precision": 0.8550067410221841,
+      "Recall": 0.9847543760587238,
+      "F1-Score": 0.9153053860788559,
+      "AUC-ROC": 0.6970343226059303
+    },
+    {
+      "Model": "GB (Struct)",
+      "Accuracy": 0.8334303340705389,
+      "Precision": 0.8442333455121179,
+      "Recall": 0.9785431959345002,
+      "F1-Score": 0.9064400130761687,
+      "AUC-ROC": 0.7352543016834294
+    },
+    {
+      "Model": "RF (TF-IDF)",
+      "Accuracy": 0.8265626818763823,
+      "Precision": 0.8692409240924093,
+      "Recall": 0.929488989271598,
+      "F1-Score": 0.8983559587966436,
+      "AUC-ROC": 0.6931796403158308
+    },
+    {
+      "Model": "LR (Combined)",
+      "Accuracy": 0.7460714701431731,
+      "Precision": 0.8885014660432681,
+      "Recall": 0.7913608130999435,
+      "F1-Score": 0.8371224847873969,
+      "AUC-ROC": 0.7273157811073263
+    },
+    {
+      "Model": "XGBoost (Struct)",
+      "Accuracy": 0.6970666977069025,
+      "Precision": 0.8998126505486662,
+      "Recall": 0.7118859401468097,
+      "F1-Score": 0.794893013358553,
+      "AUC-ROC": 0.7310704103605348
+    }
+  ],
+  "optimization": {
+    "GridSearch-XGB": {
+      "best_params": {
+        "learning_rate": 0.2,
+        "max_depth": 7,
+        "n_estimators": 300
+      },
+      "cv_f1": 0.8137641645205942,
+      "test_f1": 0.8078271253033397,
+      "time": 11.279093980789185
+    },
+    "RandomSearch-XGB": {
+      "best_params": {
+        "colsample_bytree": 0.9887128330883843,
+        "learning_rate": 0.42059547328228586,
+        "max_depth": 9,
+        "min_child_weight": 2,
+        "n_estimators": 436,
+        "subsample": 0.7203513239267079
+      },
+      "cv_f1": 0.8357322012941848,
+      "test_f1": 0.8325028188993562,
+      "time": 29.96214008331299
+    },
+    "Bayesian-XGB": {
+      "best_params": {
+        "n_estimators": 496,
+        "max_depth": 11,
+        "learning_rate": 0.17770003087527064,
+        "subsample": 0.6519432042878903,
+        "colsample_bytree": 0.9626561504776174,
+        "min_child_weight": 2
+      },
+      "cv_f1": 0.8414604730264508,
+      "test_f1": 0.8368304301974617,
+      "time": 34.155539751052856
+    }
+  },
+  "cross_validation": {
+    "LR": {
+      "mean": 0.8336431224441544,
+      "std": 0.015699926570305212
+    },
+    "XGBoost": {
+      "mean": 0.7965482570833018,
+      "std": 0.002827122487936923
+    },
+    "GB": {
+      "mean": 0.9050933374108492,
+      "std": 0.0011886867178786782
+    },
+    "RF": {
+      "mean": 0.898792217642707,
+      "std": 0.0024607448233075657
+    }
+  },
+  "transformer_benchmarking": {
+    "LR+SBERT": {
+      "Accuracy": 0.8292981026655802,
+      "F1": 0.8994549381234788,
+      "AUC": 0.711453903054333
+    },
+    "XGB+SBERT": {
+      "Accuracy": 0.8439064136887441,
+      "F1": 0.9095934740106519,
+      "AUC": 0.7025414782773558
+    }
+  },
+  "xai_top_features": [
+    "message_length",
+    "response_time_minutes",
+    "has_message",
+    "category_encoded",
+    "subcategory_encoded"
+  ],
+  "available_libraries": {
+    "optuna": true,
+    "sentence_transformers": true,
+    "shap": true,
+    "lime": true
+  }
+}
