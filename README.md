@@ -88,7 +88,10 @@ source .venv/bin/activate        # macOS/Linux
 # 3. Install all dependencies
 pip install -r requirements.txt
 
-# 4. Download required NLTK data (auto-downloads on first run, or manually):
+# 4. Decompress data and model files
+gunzip data/*.gz models/*.gz
+
+# 5. Download required NLTK data (auto-downloads on first run, or manually):
 python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('stopwords'); nltk.download('wordnet')"
 ```
 
