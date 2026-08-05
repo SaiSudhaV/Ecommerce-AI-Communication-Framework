@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T12:20:15.963564",
+  "generated_at": "2026-08-05T13:59:51.750128",
   "pipeline_version": "1.0.0",
   "dataset": "cumulative_ai_customer_communication_dataset.csv",
   "target": "csat_score >= 4 (Binary Classification)",
@@ -62,7 +62,7 @@
       },
       "cv_f1": 0.8137641645205942,
       "test_f1": 0.8078271253033397,
-      "time": 11.279093980789185
+      "time": 13.406751155853271
     },
     "RandomSearch-XGB": {
       "best_params": {
@@ -75,7 +75,7 @@
       },
       "cv_f1": 0.8357322012941848,
       "test_f1": 0.8325028188993562,
-      "time": 29.96214008331299
+      "time": 34.029852867126465
     },
     "Bayesian-XGB": {
       "best_params": {
@@ -88,7 +88,7 @@
       },
       "cv_f1": 0.8414604730264508,
       "test_f1": 0.8368304301974617,
-      "time": 34.155539751052856
+      "time": 39.260178089141846
     }
   },
   "cross_validation": {

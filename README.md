@@ -228,17 +228,54 @@ results/                         # Plots and reports
 | 11 | cleaned_word_count | 0.0385 | Word count after NLP cleaning |
 | 12 | word_count | 0.0325 | Raw word count in message |
 
+### Transformer Benchmarking Results (BERT / Sentence-BERT)
+
+| Model | Embedding | Accuracy | F1-Score | AUC-ROC |
+|-------|-----------|----------|----------|---------|
+| XGBoost + Sentence-BERT | all-MiniLM-L6-v2 (384-dim) | **84.39%** | **90.96%** | 0.7025 |
+| LR + Sentence-BERT | all-MiniLM-L6-v2 (384-dim) | 82.93% | 89.95% | **0.7115** |
+| LR + TF-IDF (Baseline) | TF-IDF (5000-dim) | 83.59% | 90.43% | 0.6992 |
+
+Sentence-BERT provides dense 384-dimensional embeddings that capture semantic meaning better than sparse TF-IDF vectors. The SBERT+XGBoost combination achieves competitive F1 while using 13x fewer dimensions than TF-IDF.
+
+### Hyperparameter Optimization Results
+
+| Method | Best CV F1 | Test F1 | Best Parameters | Time |
+|--------|-----------|---------|-----------------|------|
+| Bayesian (Optuna, 30 trials) | **84.15%** | **83.68%** | n_estimators=496, max_depth=11, lr=0.178 | 34.2s |
+| RandomizedSearchCV (50 iter) | 83.57% | 83.25% | n_estimators=436, max_depth=9, lr=0.421 | 30.0s |
+| GridSearchCV | 81.38% | 80.78% | n_estimators=300, max_depth=7, lr=0.2 | 11.3s |
+
+Bayesian optimization (Optuna TPE sampler) outperforms both grid and random search by intelligently exploring the parameter space, achieving 2.8% higher F1 than GridSearch.
+
+### Cross-Validation Stability (10-Fold)
+
+| Model | Mean F1 | Std Dev | Stability |
+|-------|---------|---------|-----------|
+| Gradient Boosting | **90.51%** | +/-0.12% | Most stable |
+| Random Forest | 89.88% | +/-0.25% | Stable |
+| Logistic Regression | 83.36% | +/-1.57% | Moderate variance |
+| XGBoost | 79.65% | +/-0.28% | Stable (lower F1 due to class weight) |
+
 ### Key Observations
 
 1. **Text-based models dominate on F1-Score**: SVM and Naive Bayes with TF-IDF achieve the highest F1 (91.6%) because customer message text directly contains satisfaction/dissatisfaction signals.
 
 2. **Structured models lead on AUC-ROC**: Gradient Boosting (0.7353) and XGBoost (0.7311) are better at discriminating between classes overall, even though their accuracy is lower — they're more conservative and don't over-predict the majority class.
 
-3. **Class imbalance effect**: With 82.5% positive class, text models that predict "positive" more aggressively get high recall (98%+) and thus high F1, but their AUC reveals limited true discrimination ability.
+3. **Transformer embeddings improve discrimination**: Sentence-BERT achieves AUC 0.7115, outperforming TF-IDF baseline (0.6992), indicating better semantic understanding of customer messages.
 
-4. **response_time_minutes** is the strongest operational predictor — faster response directly improves satisfaction.
+4. **Class imbalance effect**: With 82.5% positive class, text models that predict "positive" more aggressively get high recall (98%+) and thus high F1, but their AUC reveals limited true discrimination ability.
 
-5. **message_length** is the top XGBoost feature — longer messages typically indicate more complex/negative issues.
+5. **Bayesian optimization finds better solutions**: Optuna's TPE sampler achieves 2.8% higher F1 than exhaustive GridSearch in similar time, validating the sequential optimization approach.
+
+6. **response_time_minutes** is the strongest operational predictor — faster response directly improves satisfaction.
+
+7. **message_length** is the top XGBoost feature — longer messages typically indicate more complex/negative issues.
+
+### Output Files
+
+All results from `run_pipeline.py` are saved to `results/` and `models/` directories (see "Where to Find Results" above).
 
 ### Output Files
 
