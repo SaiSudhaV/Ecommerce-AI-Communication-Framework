@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Support Assistant - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <h1>Customer Support Assistant</h1>
+    <p class="subtitle">
+        Describe your issue and pick a category. Our assistant will suggest a
+        solution right away.
+    </p>
+</section>
+
+<div class="chat-wrap">
+    <div class="chat-window" id="chat-window">
+        <div class="chat-msg bot">
+            <div class="avatar">&#129302;</div>
+            <div class="bubble">
+                Hi! I'm your support assistant. How can I help you today?
+                Choose a category below and describe your issue.
+            </div>
+        </div>
+    </div>
+
+    <form id="chat-form" class="chat-input">
+        <select name="category" id="chat-category">
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+        <input type="text" name="query" id="chat-query"
+               placeholder="Type your issue, e.g. My order hasn't arrived yet..."
+               autocomplete="off" required>
+        <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('chat-form');
+const win = document.getElementById('chat-window');
+const queryInput = document.getElementById('chat-query');
+const categorySel = document.getElementById('chat-category');
+const sendBtn = document.getElementById('chat-send');
+
+function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+// Convert **bold** and newlines to HTML
+function formatReply(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
+function addUserMsg(text, category) {
+    const el = document.createElement('div');
+    el.className = 'chat-msg user';
+    el.innerHTML = `<div class="bubble">
+            <span class="tag">${escapeHtml(category)}</span>
+            ${escapeHtml(text)}
+        </div>
+        <div class="avatar user-avatar">&#128100;</div>`;
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+function addTyping() {
+    const el = document.createElement('div');
+    el.className = 'chat-msg bot';
+    el.id = 'typing';
+    el.innerHTML = `<div class="avatar">&#129302;</div>
+        <div class="bubble typing"><span></span><span></span><span></span></div>`;
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+function removeTyping() {
+    const t = document.getElementById('typing');
+    if (t) t.remove();
+}
+
+function addBotMsg(reply, prediction) {
+    let predHtml = '';
+    if (prediction) {
+        const cls = prediction.label === 1 ? 'pos' : 'neg';
+        predHtml = `<div class="sentiment ${cls}">
+            Predicted sentiment: <strong>${escapeHtml(prediction.prediction)}</strong>
+            (${prediction.confidence}% confidence)
+        </div>`;
+    }
+    const el = document.createElement('div');
+    el.className = 'chat-msg bot';
+    el.innerHTML = `<div class="avatar">&#129302;</div>
+        <div class="bubble">${formatReply(reply)}${predHtml}</div>`;
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = queryInput.value.trim();
+    const category = categorySel.value;
+    if (!query) return;
+
+    addUserMsg(query, category);
+    queryInput.value = '';
+    sendBtn.disabled = true;
+    addTyping();
+
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({query, category})
+        });
+        const json = await res.json();
+        removeTyping();
+
+        if (!json.success) {
+            addBotMsg('Sorry, something went wrong: ' + (json.error || 'unknown error'), null);
+        } else {
+            addBotMsg(json.bot.reply, json.prediction);
+        }
+    } catch (err) {
+        removeTyping();
+        addBotMsg('Request failed: ' + err.message, null);
+    } finally {
+        sendBtn.disabled = false;
+        queryInput.focus();
+    }
+});
+</script>
+{% endblock %}

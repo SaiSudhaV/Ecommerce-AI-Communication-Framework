@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ecommerce AI Communication Framework{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-icon">&#9889;</span>
+            <span class="brand-text">Ecommerce AI Communication Framework</span>
+        </div>
+        <nav class="nav">
+            <a href="{{ url_for('index') }}" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('support_page') }}" class="{% if active == 'support' %}active{% endif %}">Support Assistant</a>
+            <a href="{{ url_for('predict_page') }}" class="{% if active == 'predict' %}active{% endif %}">Live Prediction</a>
+            <a href="{{ url_for('visualizations') }}" class="{% if active == 'viz' %}active{% endif %}">Visualizations</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Customer Satisfaction Prediction &middot; NLP + ML + Transformers + XAI &middot; MT24AAC019</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

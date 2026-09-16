@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Customer Satisfaction Prediction System</h1>
+    <p class="subtitle">
+        An end-to-end NLP + Machine Learning pipeline that predicts e-commerce
+        customer satisfaction (CSAT) from communication data — with hyperparameter
+        optimization, transformer benchmarking, and explainable AI.
+    </p>
+    <div class="hero-actions">
+        <a href="{{ url_for('support_page') }}" class="btn btn-primary">Chat with Support Assistant</a>
+        <a href="{{ url_for('predict_page') }}" class="btn btn-secondary">Try Live Prediction</a>
+        <a href="{{ url_for('visualizations') }}" class="btn btn-secondary">View Visualizations</a>
+    </div>
+</section>
+
+{% if not results %}
+<div class="alert">
+    <strong>No results found.</strong> Run the pipeline first to generate results:
+    <code>python run_pipeline.py</code>
+</div>
+{% else %}
+
+<!-- Pipeline info -->
+<div class="cards">
+    <div class="card stat">
+        <div class="stat-label">Dataset</div>
+        <div class="stat-value">85,907</div>
+        <div class="stat-sub">customer interactions</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Models Compared</div>
+        <div class="stat-value">{{ results.evaluation | length }}+</div>
+        <div class="stat-sub">ML + transformer variants</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Best F1-Score</div>
+        <div class="stat-value">
+            {{ "%.1f"|format(results.evaluation[0]['F1-Score'] * 100) }}%
+        </div>
+        <div class="stat-sub">{{ results.evaluation[0]['Model'] }}</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Pipeline Version</div>
+        <div class="stat-value">{{ results.pipeline_version }}</div>
+        <div class="stat-sub">{{ results.generated_at[:10] }}</div>
+    </div>
+</div>
+
+<!-- Model comparison -->
+<div class="card">
+    <h2>Model Performance Comparison</h2>
+    <p class="section-note">Target: {{ results.target }}</p>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th><th>Accuracy</th><th>Precision</th>
+                    <th>Recall</th><th>F1-Score</th><th>AUC-ROC</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in results.evaluation %}
+                <tr class="{% if loop.first %}best-row{% endif %}">
+                    <td>{{ m.Model }}{% if loop.first %} <span class="badge">Best</span>{% endif %}</td>
+                    <td>{{ "%.2f"|format(m.Accuracy * 100) }}%</td>
+                    <td>{{ "%.2f"|format(m.Precision * 100) }}%</td>
+                    <td>{{ "%.2f"|format(m.Recall * 100) }}%</td>
+                    <td><strong>{{ "%.2f"|format(m['F1-Score'] * 100) }}%</strong></td>
+                    <td>{{ "%.4f"|format(m['AUC-ROC']) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Hyperparameter optimization -->
+    <div class="card">
+        <h2>Hyperparameter Optimization</h2>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Method</th><th>CV F1</th><th>Test F1</th><th>Time</th></tr>
+                </thead>
+                <tbody>
+                    {% for method, o in results.optimization.items() %}
+                    <tr>
+                        <td>{{ method }}</td>
+                        <td>{{ "%.2f"|format(o.cv_f1 * 100) }}%</td>
+                        <td>{{ "%.2f"|format(o.test_f1 * 100) }}%</td>
+                        <td>{{ "%.1f"|format(o.time) }}s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Transformer benchmarking -->
+    <div class="card">
+        <h2>Transformer Benchmarking</h2>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Model</th><th>Accuracy</th><th>F1</th><th>AUC</th></tr>
+                </thead>
+                <tbody>
+                    {% for name, t in results.transformer_benchmarking.items() %}
+                    <tr>
+                        <td>{{ name }}</td>
+                        <td>{{ "%.2f"|format(t.Accuracy * 100) }}%</td>
+                        <td>{{ "%.2f"|format(t.F1 * 100) }}%</td>
+                        <td>{{ "%.4f"|format(t.AUC) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Cross-validation -->
+    <div class="card">
+        <h2>Cross-Validation Stability (10-Fold)</h2>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Model</th><th>Mean F1</th><th>Std Dev</th></tr>
+                </thead>
+                <tbody>
+                    {% for name, cv in results.cross_validation.items() %}
+                    <tr>
+                        <td>{{ name }}</td>
+                        <td>{{ "%.2f"|format(cv.mean * 100) }}%</td>
+                        <td>&plusmn;{{ "%.2f"|format(cv.std * 100) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- XAI top features -->
+    <div class="card">
+        <h2>Top Predictive Features (XAI)</h2>
+        <ol class="feature-list">
+            {% for feat in results.xai_top_features %}
+            <li><span class="rank">{{ loop.index }}</span> {{ feat }}</li>
+            {% endfor %}
+        </ol>
+        <p class="section-note">Ranked by XGBoost feature importance.</p>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

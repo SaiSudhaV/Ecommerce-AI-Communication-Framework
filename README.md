@@ -7,7 +7,8 @@ A comprehensive machine learning framework for predicting customer satisfaction 
 ```
 Ecommerce-AI-Communication-Framework/
 ├── data/
-│   └── cumulative_ai_customer_communication_dataset.csv
+│   ├── cumulative_ai_customer_communication_dataset.csv
+│   └── user_feedback_log.csv             # Auto-logged live predictions (for retraining)
 ├── notebooks/
 │   ├── data_preprocessing.ipynb          # Data cleaning & feature engineering
 │   ├── model_training.ipynb              # Baseline model training (6 models)
@@ -21,8 +22,19 @@ Ecommerce-AI-Communication-Framework/
 ├── models/                               # Saved trained models & artifacts
 ├── results/                              # Pipeline output (plots, CSV, JSON)
 ├── src/
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── predictor.py                      # Model loading & prediction module
+│   └── support_bot.py                    # Customer support solution generator
+├── templates/                            # Web UI HTML templates
+│   ├── base.html                         # Shared layout
+│   ├── index.html                        # Dashboard (results tables)
+│   ├── support.html                      # Customer support chatbot
+│   ├── predict.html                      # Live prediction interface
+│   └── visualizations.html               # Results image gallery
+├── static/
+│   └── css/style.css                     # Web UI styling
 ├── evaluation/                           # Project evaluation presentations
+├── app.py                                # Flask web application
 ├── run_pipeline.py                       # Unified pipeline script
 ├── requirements.txt
 └── README.md
@@ -156,6 +168,167 @@ python run_pipeline.py --stage xai
 2. Select the Python interpreter from `.venv`
 3. Click "Run All" or execute cells one by one
 
+### Option 4: Web Application / Dashboard
+
+A Flask web interface lets you explore results and run live predictions in the browser.
+
+```bash
+# 1. Install Flask (included in requirements.txt)
+pip install flask
+
+# 2. Start the web server
+python app.py
+
+# 3. Open in your browser
+#    http://127.0.0.1:5001
+#    (override the port with: PORT=8080 python app.py)
+```
+
+> **Troubleshooting**: The app runs on port **5001** by default because macOS uses port 5000 for AirPlay Receiver. If a prediction returns an error, make sure no stale server is running: `lsof -ti:5001 | xargs kill -9`, then restart with `python app.py`.
+
+The web UI provides four pages:
+
+| Page | URL | Description |
+|------|-----|-------------|
+| **Dashboard** | `/` | Model comparison, optimization, transformer benchmarking, cross-validation, and top XAI features — all in interactive tables |
+| **Support Assistant** | `/support` | Customer-facing chatbot — enter a query and issue category, get an instant solution plus predicted sentiment |
+| **Live Prediction** | `/predict` | Enter a customer message + interaction details and get a real-time satisfaction prediction with confidence scores |
+| **Visualizations** | `/visualizations` | Gallery of all generated charts (confusion matrices, ROC curves, SHAP, feature importance) |
+
+**REST API endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Support bot. Body: `{query, category}` → returns a solution + satisfaction prediction |
+| `/api/predict` | POST | JSON prediction. Body: `{message, category, channel, shift, tenure, response_time_minutes, issue_hour}` |
+| `/api/results` | GET | Returns full pipeline results as JSON |
+| `/health` | GET | Health check |
+
+Example API call:
+```bash
+curl -X POST http://127.0.0.1:5001/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Order arrived late and damaged","category":"Returns","channel":"Inbound","shift":"Morning","tenure":"0-30","response_time_minutes":120}'
+```
+
+> **Note**: On the first prediction, the app trains a lightweight model (~30s). Subsequent predictions are instant. The dashboard reads from `results/pipeline_results.json`, so run `python run_pipeline.py` first to populate it.
+
+## User Guide
+
+This section explains how to use the web application step by step.
+
+### Getting Started
+
+1. **Install dependencies** — `pip install -r requirements.txt`
+2. **Decompress data/models** — `gunzip data/*.gz models/*.gz`
+3. **(Optional) Generate results** — `python run_pipeline.py` to populate the dashboard tables and charts
+4. **Launch the app** — `python app.py`
+5. **Open** `http://127.0.0.1:5001` in your browser
+
+### Using the Support Assistant (Chatbot)
+
+The **Support Assistant** is the customer-facing page. It works like a chat:
+
+1. Click **Support Assistant** in the top navigation.
+2. Pick the **issue category** from the dropdown (Order Related, Returns, Refund Related, etc.).
+3. Type your **query** — e.g. "My order hasn't arrived and it's been 10 days" — and press **Send**.
+4. The bot replies instantly with:
+   - A **greeting** confirming your issue category
+   - An **intent-aware message** (e.g. it recognizes damage, delays, refund delays, cancellations)
+   - **Numbered solution steps** you can follow
+   - A **predicted sentiment** badge showing whether the interaction looks satisfied or dissatisfied
+
+The assistant recognizes urgency: complaints about damaged items, missing deliveries, or unprocessed refunds are flagged as **high urgency** and get escalation messaging.
+
+Example queries to try:
+- "The product arrived broken and damaged" (Returns) → replacement/refund offer
+- "My refund was never processed" (Refund Related) → priority escalation
+- "How do I cancel my order?" (Cancellation) → cancellation steps
+
+> Every chat is logged to `data/user_feedback_log.csv` for future retraining (see Continuous Learning below).
+
+### Making a Prediction (Step by Step)
+
+1. Click **Live Prediction** in the top navigation bar.
+2. Fill in the interaction fields:
+   - **Customer Message** — the text the customer wrote (this is the most important input)
+   - **Category** — the type of issue (Returns, Refund Related, Order Related, etc.)
+   - **Channel** — how the customer reached out (Inbound, Outcall, Email)
+   - **Agent Shift** — when the agent handled it (Morning, Afternoon, Evening, Night, Split)
+   - **Agent Tenure** — the agent's experience bucket (On Job Training, 0-30, 31-60, 61-90, >90 days)
+   - **Response Time (minutes)** — how long before the customer got a response
+   - **Hour of Day** — the hour (0-23) the issue was reported
+3. Click **Predict Satisfaction**.
+4. Read the result panel:
+   - **Verdict** — Satisfied (Positive) or Dissatisfied (Negative)
+   - **Probability bars** — likelihood of each outcome
+   - **Confidence** — how sure the model is
+   - **Processed text** — the cleaned message the model actually analyzed
+
+### How to Interpret the Output
+
+| Signal | Meaning |
+|--------|---------|
+| Verdict = Satisfied | The customer is likely to give a CSAT score of 4-5 |
+| Verdict = Dissatisfied | The customer is likely to give a CSAT score of 1-3 |
+| Confidence > 70% | Strong prediction — the message/features clearly point one way |
+| Confidence 50-60% | Borderline case — treat with caution, consider human review |
+| Processed text is empty | The message had no usable words after cleaning; prediction relies on structured features only |
+
+### Sample Inputs (Where the Model Works Well)
+
+These examples are known to produce reliable predictions. Try them in the Live Prediction form:
+
+**Example 1 — Clear negative (works well)**
+```
+Message: "My order arrived late and the item was damaged. Very disappointed with the service."
+Category: Returns | Channel: Inbound | Shift: Morning | Tenure: 0-30
+Response Time: 120 | Hour: 14
+Expected: Dissatisfied (Negative), ~68% confidence
+```
+
+**Example 2 — Clear positive (works well)**
+```
+Message: "Excellent service! The agent was very helpful and resolved my issue quickly. Thank you so much!"
+Category: Order Related | Channel: Inbound | Shift: Morning | Tenure: >90
+Response Time: 5 | Hour: 10
+Expected: Satisfied (Positive)
+```
+
+**Example 3 — Strong negative with slow response (works well)**
+```
+Message: "Terrible experience, my refund was never processed and no one responded."
+Category: Refund Related | Channel: Email | Shift: Night | Tenure: 0-30
+Response Time: 300 | Hour: 23
+Expected: Dissatisfied (Negative), ~79% confidence
+```
+
+### Ideal Approach for Best Results
+
+- **Write a real, descriptive message.** The customer message drives most of the prediction. One-word or empty messages give weak, low-confidence results.
+- **Use realistic response times.** Very fast responses (under 15 min) push toward satisfied; long delays (over 2 hours) push toward dissatisfied.
+- **Match the category to the message.** A refund complaint should use "Refund Related", not "Feedback".
+- **Treat borderline results (confidence 50-60%) as "needs human review"** rather than a firm decision.
+- **For production accuracy**, run `python run_pipeline.py` to train and persist the optimized models before serving predictions.
+
+### Continuous Learning (Feedback Logging)
+
+Every interaction made through the web app — both **Support Assistant** chats (`/api/chat`) and **Live Prediction** submissions (`/api/predict`) — is automatically appended to:
+
+```
+data/user_feedback_log.csv
+```
+
+Each row records the submitted message, all interaction fields, and the model's prediction with its confidence. Over time this builds a growing log of real-world inputs that can be:
+
+- Reviewed to spot cases where the model struggles
+- Labeled with the true CSAT outcome and **merged into the training dataset**
+- Used to **retrain and improve** the models in a future pipeline run
+
+To incorporate the accumulated feedback into training, append the reviewed/labeled rows to the main dataset (`data/cumulative_ai_customer_communication_dataset.csv`) and re-run `python run_pipeline.py`.
+
+> The feedback log is git-ignored by default (it is runtime user data). Remove `data/*.csv` from `.gitignore` if you want to version it.
+
 ### Where to Find Results
 
 After running, outputs are saved to:
@@ -272,10 +445,6 @@ Bayesian optimization (Optuna TPE sampler) outperforms both grid and random sear
 6. **response_time_minutes** is the strongest operational predictor — faster response directly improves satisfaction.
 
 7. **message_length** is the top XGBoost feature — longer messages typically indicate more complex/negative issues.
-
-### Output Files
-
-All results from `run_pipeline.py` are saved to `results/` and `models/` directories (see "Where to Find Results" above).
 
 ### Output Files
 

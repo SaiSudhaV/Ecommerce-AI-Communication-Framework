@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Live Prediction - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <h1>Live Satisfaction Prediction</h1>
+    <p class="subtitle">
+        Enter a customer interaction below. The model predicts whether the
+        customer will be satisfied (CSAT 4-5) or dissatisfied (CSAT 1-3).
+    </p>
+</section>
+
+<div class="grid-2">
+    <div class="card">
+        <h2>Interaction Details</h2>
+        <form id="predict-form">
+            <label>Customer Message</label>
+            <textarea name="message" rows="4" placeholder="e.g. My order arrived late and the item was damaged. Very disappointed with the service." required></textarea>
+
+            <div class="form-row">
+                <div>
+                    <label>Category</label>
+                    <select name="category">
+                        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Channel</label>
+                    <select name="channel">
+                        {% for c in channels %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Agent Shift</label>
+                    <select name="shift">
+                        {% for s in shifts %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Agent Tenure</label>
+                    <select name="tenure">
+                        {% for t in tenures %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Response Time (minutes)</label>
+                    <input type="number" name="response_time_minutes" value="30" min="0" step="1">
+                </div>
+                <div>
+                    <label>Hour of Day (0-23)</label>
+                    <input type="number" name="issue_hour" value="12" min="0" max="23" step="1">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Predict Satisfaction</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Prediction Result</h2>
+        <div id="result-empty" class="result-empty">
+            <p>Fill in the form and click <strong>Predict Satisfaction</strong> to see the result here.</p>
+        </div>
+        <div id="result-loading" class="result-loading hidden">
+            <div class="spinner"></div>
+            <p>Analyzing... (first run trains the model, ~30s)</p>
+        </div>
+        <div id="result-box" class="result-box hidden">
+            <div id="result-verdict" class="verdict"></div>
+            <div class="prob-bars">
+                <div class="prob-item">
+                    <div class="prob-label">Satisfied <span id="pos-pct"></span></div>
+                    <div class="prob-track"><div id="pos-bar" class="prob-fill pos"></div></div>
+                </div>
+                <div class="prob-item">
+                    <div class="prob-label">Dissatisfied <span id="neg-pct"></span></div>
+                    <div class="prob-track"><div id="neg-bar" class="prob-fill neg"></div></div>
+                </div>
+            </div>
+            <div class="result-meta">
+                <div><span>Confidence</span><strong id="conf-val"></strong></div>
+            </div>
+            <div class="cleaned">
+                <span>Processed text:</span>
+                <code id="cleaned-text"></code>
+            </div>
+        </div>
+        <div id="result-error" class="alert hidden"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('predict-form');
+const empty = document.getElementById('result-empty');
+const loading = document.getElementById('result-loading');
+const box = document.getElementById('result-box');
+const errBox = document.getElementById('result-error');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    empty.classList.add('hidden');
+    box.classList.add('hidden');
+    errBox.classList.add('hidden');
+    loading.classList.remove('hidden');
+
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    try {
+        const res = await fetch('/api/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        loading.classList.add('hidden');
+
+        if (!json.success) {
+            errBox.textContent = 'Error: ' + (json.error || 'prediction failed');
+            errBox.classList.remove('hidden');
+            return;
+        }
+
+        const r = json.result;
+        const verdict = document.getElementById('result-verdict');
+        verdict.textContent = r.prediction;
+        verdict.className = 'verdict ' + (r.label === 1 ? 'positive' : 'negative');
+
+        document.getElementById('pos-pct').textContent = r.probability_positive + '%';
+        document.getElementById('neg-pct').textContent = r.probability_negative + '%';
+        document.getElementById('pos-bar').style.width = r.probability_positive + '%';
+        document.getElementById('neg-bar').style.width = r.probability_negative + '%';
+        document.getElementById('conf-val').textContent = r.confidence + '%';
+        document.getElementById('cleaned-text').textContent = r.cleaned_message || '(empty)';
+
+        box.classList.remove('hidden');
+    } catch (err) {
+        loading.classList.add('hidden');
+        errBox.textContent = 'Request failed: ' + err.message;
+        errBox.classList.remove('hidden');
+    }
+});
+</script>
+{% endblock %}

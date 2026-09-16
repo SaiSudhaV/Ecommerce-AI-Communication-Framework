@@ -23,6 +23,9 @@ torch
 shap
 lime
 
+# Web Application / API
+flask
+
 # Utilities
 joblib
 missingno
