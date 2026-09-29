@@ -8,7 +8,10 @@ A comprehensive machine learning framework for predicting customer satisfaction 
 Ecommerce-AI-Communication-Framework/
 ├── data/
 │   ├── cumulative_ai_customer_communication_dataset.csv
-│   └── user_feedback_log.csv             # Auto-logged live predictions (for retraining)
+│   ├── user_feedback_log.csv             # Auto-logged live predictions (for retraining)
+│   ├── users.json                        # Auth accounts (runtime, git-ignored)
+│   ├── knowledge_base.json               # Admin-verified Q&A answers (runtime)
+│   └── pending_queries.json              # Escalated customer queries (runtime)
 ├── notebooks/
 │   ├── data_preprocessing.ipynb          # Data cleaning & feature engineering
 │   ├── model_training.ipynb              # Baseline model training (6 models)
@@ -24,11 +27,15 @@ Ecommerce-AI-Communication-Framework/
 ├── src/
 │   ├── __init__.py
 │   ├── predictor.py                      # Model loading & prediction module
-│   └── support_bot.py                    # Customer support solution generator
+│   ├── support_bot.py                    # Rule-based solution generator
+│   ├── knowledge_base.py                 # Verified Q&A store + similarity matching
+│   └── auth.py                           # Customer/admin login & sessions
 ├── templates/                            # Web UI HTML templates
 │   ├── base.html                         # Shared layout
+│   ├── login.html                        # Login / register page
 │   ├── index.html                        # Dashboard (results tables)
 │   ├── support.html                      # Customer support chatbot
+│   ├── admin.html                        # Admin console (answer queries)
 │   ├── predict.html                      # Live prediction interface
 │   └── visualizations.html               # Results image gallery
 ├── static/
@@ -186,23 +193,36 @@ python app.py
 
 > **Troubleshooting**: The app runs on port **5001** by default because macOS uses port 5000 for AirPlay Receiver. If a prediction returns an error, make sure no stale server is running: `lsof -ti:5001 | xargs kill -9`, then restart with `python app.py`.
 
-The web UI provides four pages:
+The app has **role-based login**. Sign in at `/login` with one of the seed accounts:
 
-| Page | URL | Description |
-|------|-----|-------------|
-| **Dashboard** | `/` | Model comparison, optimization, transformer benchmarking, cross-validation, and top XAI features — all in interactive tables |
-| **Support Assistant** | `/support` | Customer-facing chatbot — enter a query and issue category, get an instant solution plus predicted sentiment |
-| **Live Prediction** | `/predict` | Enter a customer message + interaction details and get a real-time satisfaction prediction with confidence scores |
-| **Visualizations** | `/visualizations` | Gallery of all generated charts (confusion matrices, ROC curves, SHAP, feature importance) |
+| Role | Username | Password | Can access |
+|------|----------|----------|------------|
+| Admin | `admin` | `admin123` | Admin Console (answer escalated queries) |
+| Customer | `customer` | `customer123` | Support Assistant (chat) |
+
+Customers can also self-register from the login page. Passwords are salted-hashed and stored in `data/users.json`.
+
+The web UI provides these pages:
+
+| Page | URL | Access | Description |
+|------|-----|--------|-------------|
+| **Dashboard** | `/` | Public | Model comparison, optimization, transformer benchmarking, cross-validation, and top XAI features |
+| **Support Assistant** | `/support` | Customer | Knowledge-base chatbot — answers verified questions instantly, escalates new ones to an admin |
+| **Admin Console** | `/admin` | Admin | Answer escalated customer queries; each answer is saved to the knowledge base |
+| **Live Prediction** | `/predict` | Public | Real-time satisfaction prediction with confidence scores |
+| **Visualizations** | `/visualizations` | Public | Gallery of generated charts (confusion matrices, ROC curves, SHAP) |
 
 **REST API endpoints:**
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/chat` | POST | Support bot. Body: `{query, category}` → returns a solution + satisfaction prediction |
-| `/api/predict` | POST | JSON prediction. Body: `{message, category, channel, shift, tenure, response_time_minutes, issue_hour}` |
-| `/api/results` | GET | Returns full pipeline results as JSON |
-| `/health` | GET | Health check |
+| Endpoint | Method | Access | Description |
+|----------|--------|--------|-------------|
+| `/api/chat` | POST | Customer | KB-first support. Body: `{query, category}` → returns a verified answer OR an escalation notice + ticket id |
+| `/api/ticket/<id>` | GET | Customer | Poll an escalated ticket for the admin's answer |
+| `/api/admin/answer` | POST | Admin | Answer a ticket. Body: `{ticket_id, answer}` → promotes the Q&A into the knowledge base |
+| `/api/admin/kb` | GET | Admin | View the current knowledge base |
+| `/api/predict` | POST | Public | JSON prediction. Body: `{message, category, channel, shift, tenure, response_time_minutes, issue_hour}` |
+| `/api/results` | GET | Public | Returns full pipeline results as JSON |
+| `/health` | GET | Public | Health check |
 
 Example API call:
 ```bash
@@ -225,25 +245,31 @@ This section explains how to use the web application step by step.
 4. **Launch the app** — `python app.py`
 5. **Open** `http://127.0.0.1:5001` in your browser
 
-### Using the Support Assistant (Chatbot)
+### Knowledge-Base Support Workflow
 
-The **Support Assistant** is the customer-facing page. It works like a chat:
+The support system answers customers with **verified answers only** — never a random canned reply. Here is the full loop:
 
-1. Click **Support Assistant** in the top navigation.
-2. Pick the **issue category** from the dropdown (Order Related, Returns, Refund Related, etc.).
-3. Type your **query** — e.g. "My order hasn't arrived and it's been 10 days" — and press **Send**.
-4. The bot replies instantly with:
-   - A **greeting** confirming your issue category
-   - An **intent-aware message** (e.g. it recognizes damage, delays, refund delays, cancellations)
-   - **Numbered solution steps** you can follow
-   - A **predicted sentiment** badge showing whether the interaction looks satisfied or dissatisfied
+**Customer side (`/support`)**
+1. Log in as `customer` (or register a new account).
+2. Pick the **issue category** and type your **query**, then press **Send**.
+3. The assistant does one of two things:
+   - **Verified answer** — if a similar question has been answered before, it returns that exact answer instantly (marked *"Verified answer"*).
+   - **Escalation** — if the question is new, it replies *"I've forwarded it to our support specialist"*, creates a support ticket, and the chat quietly polls for the admin's reply. When the admin answers, the response appears in the same chat automatically (marked *"Specialist replied"*).
 
-The assistant recognizes urgency: complaints about damaged items, missing deliveries, or unprocessed refunds are flagged as **high urgency** and get escalation messaging.
+**Admin side (`/admin`)**
+1. Log in as `admin`.
+2. The **Admin Console** lists all open (escalated) queries.
+3. Type a verified answer for a query and click **Submit Answer & Save to KB**.
+4. The answer is saved to the knowledge base (`data/knowledge_base.json`).
 
-Example queries to try:
-- "The product arrived broken and damaged" (Returns) → replacement/refund offer
-- "My refund was never processed" (Refund Related) → priority escalation
-- "How do I cancel my order?" (Cancellation) → cancellation steps
+**Self-improving loop**
+- The next time *any* customer asks the same or a similar question, the assistant answers it automatically from the knowledge base — no escalation needed.
+- Matching uses TF-IDF cosine similarity, so paraphrased questions ("Can I get gift wrapping?" vs "Do you offer gift wrapping?") also match.
+
+Example to try end-to-end:
+1. As **customer**, ask *"Do you offer gift wrapping for birthday orders?"* → it escalates (new question).
+2. As **admin**, answer that ticket in the Admin Console.
+3. As **customer**, ask the same (or a reworded) question again → you now get the admin's verified answer instantly.
 
 > Every chat is logged to `data/user_feedback_log.csv` for future retraining (see Continuous Learning below).
 

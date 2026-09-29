@@ -5,8 +5,9 @@
 <section class="page-head">
     <h1>Customer Support Assistant</h1>
     <p class="subtitle">
-        Describe your issue and pick a category. Our assistant will suggest a
-        solution right away.
+        Ask your question and pick a category. If we have a verified answer,
+        you'll get it instantly. New questions are sent to a specialist and
+        answered accurately — no random replies.
     </p>
 </section>
 
@@ -15,8 +16,9 @@
         <div class="chat-msg bot">
             <div class="avatar">&#129302;</div>
             <div class="bubble">
-                Hi! I'm your support assistant. How can I help you today?
-                Choose a category below and describe your issue.
+                Hi! I'm your support assistant. Choose a category and describe
+                your issue. I answer from our verified knowledge base, and if
+                it's a new question I'll route it to a specialist.
             </div>
         </div>
     </div>
@@ -26,7 +28,7 @@
             {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
         </select>
         <input type="text" name="query" id="chat-query"
-               placeholder="Type your issue, e.g. My order hasn't arrived yet..."
+               placeholder="Type your question, e.g. How do I change my delivery address?"
                autocomplete="off" required>
         <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
     </form>
@@ -41,18 +43,18 @@ const queryInput = document.getElementById('chat-query');
 const categorySel = document.getElementById('chat-category');
 const sendBtn = document.getElementById('chat-send');
 
+// Track open tickets so we can poll for admin answers
+const openTickets = {};
+
 function escapeHtml(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
 }
-
-// Convert **bold** and newlines to HTML
 function formatReply(text) {
     let html = escapeHtml(text);
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\n/g, '<br>');
-    return html;
+    return html.replace(/\n/g, '<br>');
 }
 
 function addUserMsg(text, category) {
@@ -76,27 +78,75 @@ function addTyping() {
     win.appendChild(el);
     win.scrollTop = win.scrollHeight;
 }
-
 function removeTyping() {
     const t = document.getElementById('typing');
     if (t) t.remove();
 }
 
-function addBotMsg(reply, prediction) {
+function sourceBadge(bot) {
+    if (bot.source === 'knowledge_base') {
+        return `<span class="src-badge verified">Verified answer</span>`;
+    }
+    if (bot.source === 'escalated') {
+        return `<span class="src-badge pending">Sent to specialist &middot; Ticket #${bot.ticket_id}</span>`;
+    }
+    return '';
+}
+
+function addBotMsg(bot, prediction) {
     let predHtml = '';
     if (prediction) {
         const cls = prediction.label === 1 ? 'pos' : 'neg';
         predHtml = `<div class="sentiment ${cls}">
             Predicted sentiment: <strong>${escapeHtml(prediction.prediction)}</strong>
-            (${prediction.confidence}% confidence)
-        </div>`;
+            (${prediction.confidence}% confidence)</div>`;
     }
     const el = document.createElement('div');
     el.className = 'chat-msg bot';
     el.innerHTML = `<div class="avatar">&#129302;</div>
-        <div class="bubble">${formatReply(reply)}${predHtml}</div>`;
+        <div class="bubble">${sourceBadge(bot)}${formatReply(bot.reply)}${predHtml}</div>`;
     win.appendChild(el);
     win.scrollTop = win.scrollHeight;
+
+    // If escalated, start polling for the admin's answer
+    if (bot.escalated && bot.ticket_id) {
+        openTickets[bot.ticket_id] = true;
+        pollTicket(bot.ticket_id);
+    }
+}
+
+function addResolvedMsg(ticketId, answer) {
+    const el = document.createElement('div');
+    el.className = 'chat-msg bot';
+    el.innerHTML = `<div class="avatar">&#129302;</div>
+        <div class="bubble">
+            <span class="src-badge verified">Specialist replied &middot; Ticket #${ticketId}</span>
+            ${formatReply(answer)}
+        </div>`;
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+async function pollTicket(ticketId) {
+    // Poll every 5s for up to ~5 minutes
+    let attempts = 0;
+    const maxAttempts = 60;
+    const timer = setInterval(async () => {
+        attempts++;
+        if (!openTickets[ticketId] || attempts > maxAttempts) {
+            clearInterval(timer);
+            return;
+        }
+        try {
+            const res = await fetch(`/api/ticket/${ticketId}`);
+            const json = await res.json();
+            if (json.success && json.status === 'answered' && json.answer) {
+                clearInterval(timer);
+                delete openTickets[ticketId];
+                addResolvedMsg(ticketId, json.answer);
+            }
+        } catch (e) { /* keep polling */ }
+    }, 5000);
 }
 
 form.addEventListener('submit', async (e) => {
@@ -118,15 +168,14 @@ form.addEventListener('submit', async (e) => {
         });
         const json = await res.json();
         removeTyping();
-
         if (!json.success) {
-            addBotMsg('Sorry, something went wrong: ' + (json.error || 'unknown error'), null);
+            addBotMsg({source: 'system', reply: 'Sorry, something went wrong: ' + (json.error || 'unknown error')}, null);
         } else {
-            addBotMsg(json.bot.reply, json.prediction);
+            addBotMsg(json.bot, json.prediction);
         }
     } catch (err) {
         removeTyping();
-        addBotMsg('Request failed: ' + err.message, null);
+        addBotMsg({source: 'system', reply: 'Request failed: ' + err.message}, null);
     } finally {
         sendBtn.disabled = false;
         queryInput.focus();

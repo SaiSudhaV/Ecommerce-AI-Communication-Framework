@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Admin Console - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <h1>Admin Console</h1>
+    <p class="subtitle">
+        Answer escalated customer questions. Each answer you provide is saved
+        to the knowledge base, so the same question is answered automatically
+        next time.
+    </p>
+</section>
+
+<div class="cards">
+    <div class="card stat">
+        <div class="stat-label">Open Queries</div>
+        <div class="stat-value">{{ counts.open }}</div>
+        <div class="stat-sub">awaiting your reply</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Answered</div>
+        <div class="stat-value">{{ counts.answered }}</div>
+        <div class="stat-sub">resolved by admin</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Knowledge Base</div>
+        <div class="stat-value">{{ kb_size }}</div>
+        <div class="stat-sub">verified answers</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Open Queries {% if counts.open %}<span class="badge">{{ counts.open }}</span>{% endif %}</h2>
+    {% if not open_queries %}
+        <p class="section-note">No open queries right now. Everything is answered.</p>
+    {% else %}
+        <div id="open-list">
+        {% for q in open_queries %}
+        <div class="query-item" data-ticket="{{ q.id }}">
+            <div class="query-head">
+                <span class="query-cat">{{ q.category }}</span>
+                <span class="query-meta">Ticket #{{ q.id }} &middot; {{ q.customer }} &middot; {{ q.created_at }}</span>
+            </div>
+            <div class="query-text">{{ q.query }}</div>
+            <textarea class="answer-box" rows="3" placeholder="Type the verified answer for this question..."></textarea>
+            <button class="btn btn-primary answer-btn" data-ticket="{{ q.id }}">Submit Answer &amp; Save to KB</button>
+            <div class="answer-status"></div>
+        </div>
+        {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+{% if answered_queries %}
+<div class="card">
+    <h2>Recently Answered</h2>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>#</th><th>Category</th><th>Question</th><th>Answer</th></tr></thead>
+            <tbody>
+                {% for q in answered_queries | reverse %}
+                <tr>
+                    <td>{{ q.id }}</td>
+                    <td>{{ q.category }}</td>
+                    <td>{{ q.query }}</td>
+                    <td>{{ q.answer }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.answer-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const ticketId = btn.dataset.ticket;
+        const item = document.querySelector(`.query-item[data-ticket="${ticketId}"]`);
+        const answer = item.querySelector('.answer-box').value.trim();
+        const status = item.querySelector('.answer-status');
+
+        if (!answer) {
+            status.textContent = 'Please type an answer first.';
+            status.className = 'answer-status err';
+            return;
+        }
+        btn.disabled = true;
+        status.textContent = 'Saving...';
+        status.className = 'answer-status';
+
+        try {
+            const res = await fetch('/api/admin/answer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ticket_id: ticketId, answer})
+            });
+            const json = await res.json();
+            if (json.success) {
+                status.textContent = 'Saved to knowledge base. Customers now get this answer automatically.';
+                status.className = 'answer-status ok';
+                // Fade out the resolved item
+                setTimeout(() => { item.style.opacity = '0.5'; item.querySelector('.answer-box').disabled = true; }, 300);
+            } else {
+                status.textContent = 'Error: ' + (json.error || 'failed');
+                status.className = 'answer-status err';
+                btn.disabled = false;
+            }
+        } catch (err) {
+            status.textContent = 'Request failed: ' + err.message;
+            status.className = 'answer-status err';
+            btn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

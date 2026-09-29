@@ -14,9 +14,20 @@
         </div>
         <nav class="nav">
             <a href="{{ url_for('index') }}" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+            {% if current_user and current_user.role == 'customer' %}
             <a href="{{ url_for('support_page') }}" class="{% if active == 'support' %}active{% endif %}">Support Assistant</a>
+            {% endif %}
+            {% if current_user and current_user.role == 'admin' %}
+            <a href="{{ url_for('admin_page') }}" class="{% if active == 'admin' %}active{% endif %}">Admin Console</a>
+            {% endif %}
             <a href="{{ url_for('predict_page') }}" class="{% if active == 'predict' %}active{% endif %}">Live Prediction</a>
             <a href="{{ url_for('visualizations') }}" class="{% if active == 'viz' %}active{% endif %}">Visualizations</a>
+            {% if current_user %}
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="{{ url_for('logout') }}" class="nav-logout">Logout</a>
+            {% else %}
+            <a href="{{ url_for('login_page') }}" class="{% if active == 'login' %}active{% endif %}">Login</a>
+            {% endif %}
         </nav>
     </header>
 

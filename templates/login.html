@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Login - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+    <div class="card auth-card">
+        <h1>Sign In</h1>
+        <p class="subtitle">Access the support assistant or the admin console.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert {{ 'alert-ok' if category == 'success' else '' }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login_page') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}">
+            <label>Username</label>
+            <input type="text" name="username" placeholder="admin or customer" required autofocus>
+
+            <label>Password</label>
+            <input type="password" name="password" placeholder="Your password" required>
+
+            <button type="submit" class="btn btn-primary btn-block">Log In</button>
+        </form>
+
+        <div class="auth-divider"><span>or create a customer account</span></div>
+
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="form-row">
+                <div>
+                    <label>New Username</label>
+                    <input type="text" name="username" placeholder="Choose a username" required>
+                </div>
+                <div>
+                    <label>New Password</label>
+                    <input type="password" name="password" placeholder="Choose a password" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-secondary btn-block">Register as Customer</button>
+        </form>
+
+        <div class="auth-hint">
+            <strong>Demo accounts</strong>
+            <ul>
+                <li>Admin: <code>admin</code> / <code>admin123</code></li>
+                <li>Customer: <code>customer</code> / <code>customer123</code></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
