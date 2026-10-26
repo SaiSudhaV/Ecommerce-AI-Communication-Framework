@@ -25,7 +25,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 
-_lock = threading.Lock()
+# Reentrant lock: register_user() holds the lock and then calls _ensure_seed(),
+# which also acquires it. A plain Lock would deadlock on that re-entry.
+_lock = threading.RLock()
 
 # Seed accounts created if no users file exists yet.
 _SEED_USERS = [

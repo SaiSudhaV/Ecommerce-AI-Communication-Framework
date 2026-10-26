@@ -2,12 +2,22 @@
 {% block title %}Admin Console - Ecommerce AI Communication Framework{% endblock %}
 
 {% block content %}
+<!-- Live popup for new incoming customer queries -->
+<div id="notif-toast" class="notif-toast hidden">
+    <span class="notif-icon">&#128276;</span>
+    <div class="notif-body">
+        <strong id="notif-title">New customer query</strong>
+        <div id="notif-text"></div>
+    </div>
+    <button class="notif-close" onclick="document.getElementById('notif-toast').classList.add('hidden')">&times;</button>
+</div>
+
 <section class="page-head">
     <h1>Admin Console</h1>
     <p class="subtitle">
         Answer escalated customer questions. Each answer you provide is saved
         to the knowledge base, so the same question is answered automatically
-        next time.
+        next time. New queries appear here live with a notification.
     </p>
 </section>
 
@@ -30,25 +40,24 @@
 </div>
 
 <div class="card">
-    <h2>Open Queries {% if counts.open %}<span class="badge">{{ counts.open }}</span>{% endif %}</h2>
-    {% if not open_queries %}
-        <p class="section-note">No open queries right now. Everything is answered.</p>
-    {% else %}
-        <div id="open-list">
-        {% for q in open_queries %}
-        <div class="query-item" data-ticket="{{ q.id }}">
-            <div class="query-head">
-                <span class="query-cat">{{ q.category }}</span>
-                <span class="query-meta">Ticket #{{ q.id }} &middot; {{ q.customer }} &middot; {{ q.created_at }}</span>
-            </div>
-            <div class="query-text">{{ q.query }}</div>
-            <textarea class="answer-box" rows="3" placeholder="Type the verified answer for this question..."></textarea>
-            <button class="btn btn-primary answer-btn" data-ticket="{{ q.id }}">Submit Answer &amp; Save to KB</button>
-            <div class="answer-status"></div>
+    <h2>Open Queries <span class="badge" id="open-count" {% if not counts.open %}style="display:none"{% endif %}>{{ counts.open }}</span></h2>
+    <p class="section-note" id="no-open-msg" {% if open_queries %}style="display:none"{% endif %}>
+        No open queries right now. New ones will appear here automatically.
+    </p>
+    <div id="open-list">
+    {% for q in open_queries %}
+    <div class="query-item" data-ticket="{{ q.id }}">
+        <div class="query-head">
+            <span class="query-cat">{{ q.category }}</span>
+            <span class="query-meta">Ticket #{{ q.id }} &middot; {{ q.customer }} &middot; {{ q.created_at }}</span>
         </div>
-        {% endfor %}
-        </div>
-    {% endif %}
+        <div class="query-text">{{ q.query }}</div>
+        <textarea class="answer-box" rows="3" placeholder="Type the verified answer for this question..."></textarea>
+        <button class="btn btn-primary answer-btn" data-ticket="{{ q.id }}">Submit Answer &amp; Save to KB</button>
+        <div class="answer-status"></div>
+    </div>
+    {% endfor %}
+    </div>
 </div>
 
 {% if answered_queries %}
@@ -75,45 +84,129 @@
 
 {% block scripts %}
 <script>
-document.querySelectorAll('.answer-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const ticketId = btn.dataset.ticket;
-        const item = document.querySelector(`.query-item[data-ticket="${ticketId}"]`);
-        const answer = item.querySelector('.answer-box').value.trim();
-        const status = item.querySelector('.answer-status');
+const openList = document.getElementById('open-list');
+const openCount = document.getElementById('open-count');
+const noOpenMsg = document.getElementById('no-open-msg');
+const toast = document.getElementById('notif-toast');
 
-        if (!answer) {
-            status.textContent = 'Please type an answer first.';
-            status.className = 'answer-status err';
-            return;
-        }
-        btn.disabled = true;
-        status.textContent = 'Saving...';
-        status.className = 'answer-status';
+// Track which ticket IDs are already shown so we only alert on genuinely new ones
+const knownTickets = new Set(
+    Array.from(document.querySelectorAll('.query-item')).map(el => parseInt(el.dataset.ticket))
+);
+let firstPoll = true;
 
-        try {
-            const res = await fetch('/api/admin/answer', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ticket_id: ticketId, answer})
-            });
-            const json = await res.json();
-            if (json.success) {
-                status.textContent = 'Saved to knowledge base. Customers now get this answer automatically.';
-                status.className = 'answer-status ok';
-                // Fade out the resolved item
-                setTimeout(() => { item.style.opacity = '0.5'; item.querySelector('.answer-box').disabled = true; }, 300);
-            } else {
-                status.textContent = 'Error: ' + (json.error || 'failed');
-                status.className = 'answer-status err';
-                btn.disabled = false;
-            }
-        } catch (err) {
-            status.textContent = 'Request failed: ' + err.message;
+function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+// --- Answer submission (event delegation so dynamic items work) ---
+openList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.answer-btn');
+    if (!btn) return;
+
+    const ticketId = btn.dataset.ticket;
+    const item = document.querySelector(`.query-item[data-ticket="${ticketId}"]`);
+    const answer = item.querySelector('.answer-box').value.trim();
+    const status = item.querySelector('.answer-status');
+
+    if (!answer) {
+        status.textContent = 'Please type an answer first.';
+        status.className = 'answer-status err';
+        return;
+    }
+    btn.disabled = true;
+    status.textContent = 'Saving...';
+    status.className = 'answer-status';
+
+    try {
+        const res = await fetch('/api/admin/answer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ticket_id: ticketId, answer})
+        });
+        const json = await res.json();
+        if (json.success) {
+            status.textContent = 'Saved to knowledge base. The customer now sees this answer, and it will auto-answer next time.';
+            status.className = 'answer-status ok';
+            setTimeout(() => {
+                item.style.opacity = '0.5';
+                item.querySelector('.answer-box').disabled = true;
+                btn.textContent = 'Answered';
+            }, 300);
+        } else {
+            status.textContent = 'Error: ' + (json.error || 'failed');
             status.className = 'answer-status err';
             btn.disabled = false;
         }
-    });
+    } catch (err) {
+        status.textContent = 'Request failed: ' + err.message;
+        status.className = 'answer-status err';
+        btn.disabled = false;
+    }
 });
+
+// --- Build a query card for a newly arrived ticket ---
+function makeQueryCard(q) {
+    const el = document.createElement('div');
+    el.className = 'query-item new-flash';
+    el.dataset.ticket = q.id;
+    el.innerHTML = `
+        <div class="query-head">
+            <span class="query-cat">${escapeHtml(q.category)}</span>
+            <span class="query-meta">Ticket #${q.id} &middot; ${escapeHtml(q.customer)} &middot; ${escapeHtml(q.created_at)}</span>
+        </div>
+        <div class="query-text">${escapeHtml(q.query)}</div>
+        <textarea class="answer-box" rows="3" placeholder="Type the verified answer for this question..."></textarea>
+        <button class="btn btn-primary answer-btn" data-ticket="${q.id}">Submit Answer &amp; Save to KB</button>
+        <div class="answer-status"></div>`;
+    return el;
+}
+
+function showToast(q, extra) {
+    document.getElementById('notif-title').textContent =
+        extra > 0 ? `${extra + 1} new customer queries` : 'New customer query';
+    document.getElementById('notif-text').textContent =
+        `[${q.category}] ${q.query}`;
+    toast.classList.remove('hidden');
+    // Auto-hide after 8s
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 8000);
+}
+
+// --- Poll for new open queries ---
+async function pollNotifications() {
+    try {
+        const res = await fetch('/api/admin/notifications');
+        const json = await res.json();
+        if (!json.success) return;
+
+        const incoming = json.open_queries.filter(q => !knownTickets.has(q.id));
+
+        if (incoming.length && !firstPoll) {
+            // Add new cards and alert
+            incoming.forEach(q => {
+                knownTickets.add(q.id);
+                openList.prepend(makeQueryCard(q));
+            });
+            noOpenMsg.style.display = 'none';
+            showToast(incoming[0], incoming.length - 1);
+        } else {
+            incoming.forEach(q => knownTickets.add(q.id));
+        }
+
+        // Update the open count badge
+        if (json.open_count > 0) {
+            openCount.textContent = json.open_count;
+            openCount.style.display = '';
+        }
+        firstPoll = false;
+    } catch (e) { /* ignore and keep polling */ }
+}
+
+// Poll every 4 seconds
+setInterval(pollNotifications, 4000);
+pollNotifications();
 </script>
 {% endblock %}

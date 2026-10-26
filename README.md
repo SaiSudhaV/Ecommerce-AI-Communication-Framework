@@ -10,8 +10,8 @@ Ecommerce-AI-Communication-Framework/
 │   ├── cumulative_ai_customer_communication_dataset.csv
 │   ├── user_feedback_log.csv             # Auto-logged live predictions (for retraining)
 │   ├── users.json                        # Auth accounts (runtime, git-ignored)
-│   ├── knowledge_base.json               # Admin-verified Q&A answers (runtime)
-│   └── pending_queries.json              # Escalated customer queries (runtime)
+│   ├── knowledge_base.json               # Verified Q&A answers (persisted, retained)
+│   └── pending_queries.json              # Escalated support tickets (persisted, retained)
 ├── notebooks/
 │   ├── data_preprocessing.ipynb          # Data cleaning & feature engineering
 │   ├── model_training.ipynb              # Baseline model training (6 models)
@@ -251,10 +251,12 @@ The support system answers customers with **verified answers only** — never a 
 
 **Customer side (`/support`)**
 1. Log in as `customer` (or register a new account).
-2. Pick the **issue category** and type your **query**, then press **Send**.
-3. The assistant does one of two things:
+2. The left sidebar shows **Your Queries** — every past conversation, retained even after you log out. Click **+ New Query** to start fresh, or click a past query to reopen its full chat transcript.
+3. Pick the **issue category** and type your **query**, then press **Send**.
+4. The assistant does one of two things:
    - **Verified answer** — if a similar question has been answered before, it returns that exact answer instantly (marked *"Verified answer"*).
-   - **Escalation** — if the question is new, it replies *"I've forwarded it to our support specialist"*, creates a support ticket, and the chat quietly polls for the admin's reply. When the admin answers, the response appears in the same chat automatically (marked *"Specialist replied"*).
+   - **No answer** — if it has nothing verified, it replies *"Sorry, I could not help you out"* and offers a **Chat with an Agent** button. Only when you click it is a support ticket created.
+5. When an agent answers your escalated query, a green banner appears on top (*"An agent answered your query"*) with a **View** button that opens the conversation. The reply is also shown inline in the chat, and the sidebar item is marked **Answered**.
 
 **Admin side (`/admin`)**
 1. Log in as `admin`.
@@ -267,11 +269,22 @@ The support system answers customers with **verified answers only** — never a 
 - Matching uses TF-IDF cosine similarity, so paraphrased questions ("Can I get gift wrapping?" vs "Do you offer gift wrapping?") also match.
 
 Example to try end-to-end:
-1. As **customer**, ask *"Do you offer gift wrapping for birthday orders?"* → it escalates (new question).
-2. As **admin**, answer that ticket in the Admin Console.
-3. As **customer**, ask the same (or a reworded) question again → you now get the admin's verified answer instantly.
+1. As **customer**, ask a new question → the bot replies *"Sorry, I could not help you out"* and offers a **Chat with an Agent** button.
+2. Click **Chat with an Agent** → a support ticket is created and the **admin gets a live popup** notification.
+3. As **admin**, answer that ticket in the Admin Console → it's saved to the knowledge base and appears in the customer's chat.
+4. As **customer**, ask the same (or a reworded) question again → you get the admin's verified answer instantly.
 
 > Every chat is logged to `data/user_feedback_log.csv` for future retraining (see Continuous Learning below).
+
+### Data Persistence
+
+All verified answers and support tickets are **retained across sessions, server restarts, and machine reboots**:
+
+- **`data/knowledge_base.json`** — every admin-verified answer is written to disk atomically the moment it's saved. On first run the file is auto-seeded with baseline answers for the most common questions. This file is **version-controlled** so the knowledge base survives fresh clones.
+- **`data/pending_queries.json`** — escalated support tickets (open and answered) persist here, including the **full chat transcript** per ticket. A customer's conversation is retained after they log out, so they can log back in, pick the query from the sidebar, and see the whole history plus the agent's reply.
+- **`data/users.json`** — registered accounts persist here. It is git-ignored because it contains password hashes.
+
+Because writes are atomic (temp file + rename), state is never corrupted even if the server stops mid-write. Nothing is held only in memory — closing or exiting the app never loses answered queries.
 
 ### Making a Prediction (Step by Step)
 

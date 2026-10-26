@@ -2,36 +2,70 @@
 {% block title %}Support Assistant - Ecommerce AI Communication Framework{% endblock %}
 
 {% block content %}
+<!-- Banner shown when an agent has answered one of the customer's queries -->
+<div id="answer-banner" class="answer-banner hidden">
+    <span class="banner-icon">&#9989;</span>
+    <div class="banner-body">
+        <strong id="banner-title">An agent answered your query</strong>
+        <div id="banner-text"></div>
+    </div>
+    <button class="banner-view" id="banner-view">View</button>
+    <button class="banner-close" onclick="document.getElementById('answer-banner').classList.add('hidden')">&times;</button>
+</div>
+
 <section class="page-head">
     <h1>Customer Support Assistant</h1>
     <p class="subtitle">
-        Ask your question and pick a category. If we have a verified answer,
-        you'll get it instantly. New questions are sent to a specialist and
-        answered accurately — no random replies.
+        Ask a question or pick up a previous conversation. Verified answers come
+        instantly; new questions can be sent to a live agent. Your chats are saved
+        even after you log out.
     </p>
 </section>
 
-<div class="chat-wrap">
-    <div class="chat-window" id="chat-window">
-        <div class="chat-msg bot">
-            <div class="avatar">&#129302;</div>
-            <div class="bubble">
-                Hi! I'm your support assistant. Choose a category and describe
-                your issue. I answer from our verified knowledge base, and if
-                it's a new question I'll route it to a specialist.
+<div class="support-layout">
+    <!-- Sidebar: new query + existing queries -->
+    <aside class="query-sidebar">
+        <button class="btn btn-primary btn-block" id="new-query-btn">+ New Query</button>
+        <div class="sidebar-head">Your Queries</div>
+        <div id="query-list" class="query-list">
+            {% if not my_queries %}
+            <p class="sidebar-empty" id="sidebar-empty">No past queries yet.</p>
+            {% endif %}
+            {% for q in my_queries %}
+            <button class="query-list-item" data-ticket="{{ q.id }}">
+                <span class="qli-cat">{{ q.category }}</span>
+                <span class="qli-text">{{ q.query }}</span>
+                <span class="qli-status qli-{{ q.status }}">
+                    {% if q.status == 'answered' %}Answered{% else %}Waiting for agent{% endif %}
+                    {% if q.status == 'answered' and not q.customer_seen %}<span class="qli-dot"></span>{% endif %}
+                </span>
+            </button>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Chat window -->
+    <div class="chat-wrap">
+        <div class="chat-window" id="chat-window">
+            <div class="chat-msg bot">
+                <div class="avatar">&#129302;</div>
+                <div class="bubble">
+                    Hi! I'm your support assistant. Choose a category and describe
+                    your issue, or pick a previous query on the left to continue it.
+                </div>
             </div>
         </div>
-    </div>
 
-    <form id="chat-form" class="chat-input">
-        <select name="category" id="chat-category">
-            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-        </select>
-        <input type="text" name="query" id="chat-query"
-               placeholder="Type your question, e.g. How do I change my delivery address?"
-               autocomplete="off" required>
-        <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
-    </form>
+        <form id="chat-form" class="chat-input">
+            <select name="category" id="chat-category">
+                {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+            <input type="text" name="query" id="chat-query"
+                   placeholder="Type your question, e.g. How do I change my delivery address?"
+                   autocomplete="off" required>
+            <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
@@ -42,13 +76,22 @@ const win = document.getElementById('chat-window');
 const queryInput = document.getElementById('chat-query');
 const categorySel = document.getElementById('chat-category');
 const sendBtn = document.getElementById('chat-send');
+const queryList = document.getElementById('query-list');
+const newQueryBtn = document.getElementById('new-query-btn');
+const banner = document.getElementById('answer-banner');
 
-// Track open tickets so we can poll for admin answers
 const openTickets = {};
+
+// Flow state carried across turns of the guided conversation.
+// stage: 'ask' | 'clarify' | 'resolved' | 'exhausted'
+let chatState = {stage: 'ask', clarify_step: 0, original_query: '', collected: []};
+function resetChatState() {
+    chatState = {stage: 'ask', clarify_step: 0, original_query: '', collected: []};
+}
 
 function escapeHtml(s) {
     const d = document.createElement('div');
-    d.textContent = s;
+    d.textContent = s == null ? '' : s;
     return d.innerHTML;
 }
 function formatReply(text) {
@@ -56,19 +99,29 @@ function formatReply(text) {
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     return html.replace(/\n/g, '<br>');
 }
+function clearChat() {
+    win.innerHTML = '';
+}
+function botIntro() {
+    clearChat();
+    const el = document.createElement('div');
+    el.className = 'chat-msg bot';
+    el.innerHTML = `<div class="avatar">&#129302;</div>
+        <div class="bubble">Hi! Describe your issue below, or pick a previous query on the left.</div>`;
+    win.appendChild(el);
+}
 
 function addUserMsg(text, category) {
     const el = document.createElement('div');
     el.className = 'chat-msg user';
     el.innerHTML = `<div class="bubble">
-            <span class="tag">${escapeHtml(category)}</span>
+            ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ''}
             ${escapeHtml(text)}
         </div>
         <div class="avatar user-avatar">&#128100;</div>`;
     win.appendChild(el);
     win.scrollTop = win.scrollHeight;
 }
-
 function addTyping() {
     const el = document.createElement('div');
     el.className = 'chat-msg bot';
@@ -82,18 +135,26 @@ function removeTyping() {
     const t = document.getElementById('typing');
     if (t) t.remove();
 }
-
 function sourceBadge(bot) {
-    if (bot.source === 'knowledge_base') {
-        return `<span class="src-badge verified">Verified answer</span>`;
-    }
-    if (bot.source === 'escalated') {
-        return `<span class="src-badge pending">Sent to specialist &middot; Ticket #${bot.ticket_id}</span>`;
-    }
+    if (bot.source === 'knowledge_base') return `<span class="src-badge verified">Verified answer</span>`;
+    if (bot.source === 'clarify') return `<span class="src-badge pending">A couple of questions...</span>`;
+    if (bot.source === 'exhausted') return `<span class="src-badge pending">No verified answer</span>`;
+    if (bot.source === 'no_answer') return `<span class="src-badge pending">No verified answer</span>`;
     return '';
 }
 
 function addBotMsg(bot, prediction) {
+    // Advance the flow state based on what the bot returned
+    chatState.stage = bot.stage || 'ask';
+    if (bot.stage === 'clarify') {
+        chatState.clarify_step = bot.clarify_step || 0;
+        chatState.original_query = bot.original_query || chatState.original_query;
+        chatState.collected = bot.collected || chatState.collected;
+    } else if (bot.stage === 'ask' || bot.stage === 'exhausted' || bot.stage === 'resolved') {
+        // keep original_query/collected for context but no further clarify steps
+        if (bot.stage !== 'resolved') { /* resolved waits for yes/no */ }
+    }
+
     let predHtml = '';
     if (prediction) {
         const cls = prediction.label === 1 ? 'pos' : 'neg';
@@ -101,26 +162,99 @@ function addBotMsg(bot, prediction) {
             Predicted sentiment: <strong>${escapeHtml(prediction.prediction)}</strong>
             (${prediction.confidence}% confidence)</div>`;
     }
+
+    // Follow-up prompt after a verified answer ("Did this resolve your issue?")
+    let followHtml = '';
+    if (bot.follow_up) {
+        followHtml = `<div class="follow-up">${escapeHtml(bot.follow_up)}
+            <div class="follow-btns">
+                <button class="btn btn-secondary follow-yes">Yes, resolved</button>
+                <button class="btn btn-secondary follow-no">No, still need help</button>
+            </div></div>`;
+    }
+
+    let agentHtml = '';
+    if (bot.offer_agent) {
+        agentHtml = `<div class="agent-offer">
+            <button class="btn btn-primary agent-btn"
+                    data-query="${escapeHtml(bot.query)}"
+                    data-category="${escapeHtml(bot.category)}">
+                &#128222; Chat with an Agent
+            </button>
+        </div>`;
+    }
     const el = document.createElement('div');
     el.className = 'chat-msg bot';
     el.innerHTML = `<div class="avatar">&#129302;</div>
-        <div class="bubble">${sourceBadge(bot)}${formatReply(bot.reply)}${predHtml}</div>`;
+        <div class="bubble">${sourceBadge(bot)}${formatReply(bot.reply)}${predHtml}${followHtml}${agentHtml}</div>`;
     win.appendChild(el);
     win.scrollTop = win.scrollHeight;
 
-    // If escalated, start polling for the admin's answer
-    if (bot.escalated && bot.ticket_id) {
-        openTickets[bot.ticket_id] = true;
-        pollTicket(bot.ticket_id);
+    const btn = el.querySelector('.agent-btn');
+    if (btn) btn.addEventListener('click', () => escalateToAgent(btn));
+
+    // Follow-up Yes/No after a verified answer
+    const yesBtn = el.querySelector('.follow-yes');
+    const noBtn = el.querySelector('.follow-no');
+    if (yesBtn) yesBtn.addEventListener('click', () => {
+        el.querySelector('.follow-btns').remove();
+        addUserMsg('Yes, resolved', null);
+        sendTurn('yes', 'resolved');
+    });
+    if (noBtn) noBtn.addEventListener('click', () => {
+        el.querySelector('.follow-btns').remove();
+        addUserMsg('No, still need help', null);
+        sendTurn('no', 'resolved');
+    });
+}
+
+async function escalateToAgent(btn) {
+    const query = btn.dataset.query;
+    const category = btn.dataset.category;
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+    try {
+        const res = await fetch('/api/escalate', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({query, category})
+        });
+        const json = await res.json();
+        if (json.success) {
+            btn.closest('.agent-offer').remove();
+            addAgentConnectMsg(json.ticket_id, json.reply);
+            openTickets[json.ticket_id] = true;
+            pollTicket(json.ticket_id);
+            refreshQueryList();
+        } else {
+            btn.disabled = false; btn.textContent = 'Chat with an Agent';
+        }
+    } catch (err) {
+        btn.disabled = false; btn.textContent = 'Chat with an Agent';
     }
 }
 
-function addResolvedMsg(ticketId, answer) {
+function addAgentConnectMsg(ticketId, reply) {
     const el = document.createElement('div');
     el.className = 'chat-msg bot';
-    el.innerHTML = `<div class="avatar">&#129302;</div>
+    el.id = `ticket-wait-${ticketId}`;
+    el.innerHTML = `<div class="avatar">&#128100;&#8205;&#128188;</div>
         <div class="bubble">
-            <span class="src-badge verified">Specialist replied &middot; Ticket #${ticketId}</span>
+            <span class="src-badge agent">Connected to Agent &middot; Ticket #${ticketId}</span>
+            ${formatReply(reply)}
+            <div class="agent-wait"><span class="dot"></span> Waiting for the agent to respond...</div>
+        </div>`;
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+function addResolvedMsg(ticketId, answer) {
+    const waitEl = document.getElementById(`ticket-wait-${ticketId}`);
+    if (waitEl) { const w = waitEl.querySelector('.agent-wait'); if (w) w.remove(); }
+    const el = document.createElement('div');
+    el.className = 'chat-msg bot';
+    el.innerHTML = `<div class="avatar">&#128100;&#8205;&#128188;</div>
+        <div class="bubble">
+            <span class="src-badge verified">Agent replied &middot; Ticket #${ticketId}</span>
             ${formatReply(answer)}
         </div>`;
     win.appendChild(el);
@@ -128,15 +262,11 @@ function addResolvedMsg(ticketId, answer) {
 }
 
 async function pollTicket(ticketId) {
-    // Poll every 5s for up to ~5 minutes
     let attempts = 0;
-    const maxAttempts = 60;
+    const maxAttempts = 120;
     const timer = setInterval(async () => {
         attempts++;
-        if (!openTickets[ticketId] || attempts > maxAttempts) {
-            clearInterval(timer);
-            return;
-        }
+        if (!openTickets[ticketId] || attempts > maxAttempts) { clearInterval(timer); return; }
         try {
             const res = await fetch(`/api/ticket/${ticketId}`);
             const json = await res.json();
@@ -144,42 +274,157 @@ async function pollTicket(ticketId) {
                 clearInterval(timer);
                 delete openTickets[ticketId];
                 addResolvedMsg(ticketId, json.answer);
+                refreshQueryList();
             }
         } catch (e) { /* keep polling */ }
     }, 5000);
 }
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const query = queryInput.value.trim();
-    const category = categorySel.value;
-    if (!query) return;
+// --- Load an existing conversation when a sidebar item is clicked ---
+async function openQuery(ticketId) {
+    try {
+        const res = await fetch(`/api/my-queries/${ticketId}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const t = json.ticket;
+        clearChat();
+        resetChatState();
 
-    addUserMsg(query, category);
+        // Render the saved transcript (plain, no flow-state side effects)
+        (t.conversation || []).forEach(msg => {
+            if (msg.role === 'customer') {
+                addUserMsg(msg.text, null);
+            } else if (msg.role === 'agent') {
+                addResolvedMsg(t.id, msg.text);
+            } else {
+                addBotMsg({source: 'system', reply: msg.text}, null);
+            }
+        });
+
+        if (t.status === 'open') {
+            addAgentConnectMsg(t.id, 'This query is still open. An agent will reply here.');
+            const w = document.getElementById(`ticket-wait-${t.id}`);
+            // keep the waiting indicator and resume polling
+            openTickets[t.id] = true;
+            pollTicket(t.id);
+        }
+        refreshQueryList();
+        // highlight active
+        document.querySelectorAll('.query-list-item').forEach(b =>
+            b.classList.toggle('active', b.dataset.ticket == String(ticketId)));
+    } catch (e) { /* ignore */ }
+}
+
+// --- Refresh the sidebar list of queries ---
+async function refreshQueryList() {
+    try {
+        const res = await fetch('/api/my-queries');
+        const json = await res.json();
+        if (!json.success) return;
+        const emptyMsg = json.queries.length === 0
+            ? '<p class="sidebar-empty">No past queries yet.</p>' : '';
+        queryList.innerHTML = emptyMsg + json.queries.map(q => `
+            <button class="query-list-item" data-ticket="${q.id}">
+                <span class="qli-cat">${escapeHtml(q.category)}</span>
+                <span class="qli-text">${escapeHtml(q.query)}</span>
+                <span class="qli-status qli-${q.status}">
+                    ${q.answered ? 'Answered' : 'Waiting for agent'}
+                    ${q.answered && !q.seen ? '<span class="qli-dot"></span>' : ''}
+                </span>
+            </button>`).join('');
+    } catch (e) { /* ignore */ }
+}
+
+// --- Sidebar click (event delegation) ---
+queryList.addEventListener('click', (e) => {
+    const item = e.target.closest('.query-list-item');
+    if (item) openQuery(item.dataset.ticket);
+});
+
+newQueryBtn.addEventListener('click', () => {
+    botIntro();
+    resetChatState();
     queryInput.value = '';
+    document.querySelectorAll('.query-list-item').forEach(b => b.classList.remove('active'));
+    queryInput.focus();
+});
+
+// --- Notification banner polling (customer side) ---
+let bannerTicket = null;
+async function pollCustomerNotifications() {
+    try {
+        const res = await fetch('/api/customer-notifications');
+        const json = await res.json();
+        if (json.success && json.count > 0) {
+            const a = json.answered[0];
+            bannerTicket = a.id;
+            document.getElementById('banner-title').textContent =
+                json.count > 1 ? `An agent answered ${json.count} of your queries` : 'An agent answered your query';
+            document.getElementById('banner-text').textContent = `[${a.category}] ${a.query}`;
+            banner.classList.remove('hidden');
+            refreshQueryList();
+        }
+    } catch (e) { /* ignore */ }
+}
+document.getElementById('banner-view').addEventListener('click', () => {
+    banner.classList.add('hidden');
+    if (bannerTicket) openQuery(bannerTicket);
+});
+setInterval(pollCustomerNotifications, 6000);
+pollCustomerNotifications();
+
+// --- Send one turn of the guided conversation ---
+async function sendTurn(query, stageOverride) {
+    const category = categorySel.value;
     sendBtn.disabled = true;
     addTyping();
 
+    // On a brand-new question (stage 'ask' with no original_query), seed state
+    if (chatState.stage === 'ask' && !chatState.original_query) {
+        chatState.original_query = query;
+    }
+
+    const payload = {
+        query: query,
+        category: category,
+        stage: stageOverride || chatState.stage || 'ask',
+        clarify_step: chatState.clarify_step || 0,
+        original_query: chatState.original_query || query,
+        collected: chatState.collected || [],
+    };
+
     try {
         const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({query, category})
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
         });
         const json = await res.json();
         removeTyping();
         if (!json.success) {
-            addBotMsg({source: 'system', reply: 'Sorry, something went wrong: ' + (json.error || 'unknown error')}, null);
+            addBotMsg({source: 'system', stage: 'ask', reply: 'Sorry, something went wrong: ' + (json.error || 'unknown error')}, null);
         } else {
             addBotMsg(json.bot, json.prediction);
+            // If the bot closed the thread, reset so the next message starts fresh
+            if (json.bot.stage === 'ask') resetChatState();
         }
     } catch (err) {
         removeTyping();
-        addBotMsg({source: 'system', reply: 'Request failed: ' + err.message}, null);
+        addBotMsg({source: 'system', stage: 'ask', reply: 'Request failed: ' + err.message}, null);
     } finally {
         sendBtn.disabled = false;
         queryInput.focus();
     }
+}
+
+// --- Form submit (new question or clarify answer) ---
+form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = queryInput.value.trim();
+    const category = categorySel.value;
+    if (!query) return;
+    addUserMsg(query, chatState.stage === 'ask' && !chatState.original_query ? category : null);
+    queryInput.value = '';
+    sendTurn(query);
 });
 </script>
 {% endblock %}

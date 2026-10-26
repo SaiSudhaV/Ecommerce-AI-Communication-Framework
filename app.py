@@ -25,7 +25,9 @@ from src.predictor import (
     get_predictor, log_feedback, CATEGORY_OPTIONS, CHANNEL_OPTIONS,
     SHIFT_OPTIONS, TENURE_OPTIONS,
 )
-from src.support_bot import generate_response, SUPPORT_CATEGORIES
+from src.support_bot import (
+    generate_response, get_clarifiers, recommendation_for, SUPPORT_CATEGORIES,
+)
 from src import knowledge_base as kb
 from src import auth
 
@@ -183,94 +185,287 @@ def api_results():
 @app.route("/support", methods=["GET"])
 @auth.login_required(role="customer")
 def support_page():
-    return render_template("support.html", active="support", categories=SUPPORT_CATEGORIES)
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    my_queries = kb.queries_for_customer(customer)
+    return render_template(
+        "support.html", active="support",
+        categories=SUPPORT_CATEGORIES,
+        my_queries=my_queries,
+    )
 
 
 @app.route("/api/chat", methods=["POST"])
 @auth.login_required(role="customer")
 def api_chat():
     """
-    KB-first support endpoint.
-      1. Look for a confident match in the knowledge base -> return real answer.
-      2. If no match, escalate to admin queue and return an escalation notice.
-    Also attaches a satisfaction prediction and logs the interaction.
+    Staged, guided support flow (never a random reply, agent is the last resort):
+
+      Stage "ask" (default): customer sends a question.
+        - If the knowledge base has a confident match -> return the verified
+          answer as a recommendation, then ask if it resolved their issue.
+        - If no match -> start the clarifying-questions flow (stage "clarify").
+
+      Stage "clarify": the bot asks 1-2 clarifying questions one at a time.
+        After re-checking the KB with the added context and still finding
+        nothing, it moves to stage "exhausted".
+
+      Stage "exhausted": the bot has tried everything it can; it apologises and
+        offers the "Chat with an Agent" button. Escalation happens only here,
+        and only when the customer clicks the button (handled by /api/escalate).
+
+    The client passes the flow state back each turn:
+        {query, category, stage, clarify_step, original_query, collected[]}
     """
     data = request.get_json(force=True, silent=True) or request.form
     query = (data.get("query", "") or data.get("message", "")).strip()
     category = data.get("category", SUPPORT_CATEGORIES[0])
+    stage = data.get("stage", "ask")
+    clarify_step = int(data.get("clarify_step", 0) or 0)
+    original_query = (data.get("original_query", "") or query).strip()
+    collected = data.get("collected") or []
+    if isinstance(collected, str):
+        collected = [collected]
+
     user = auth.current_user() or {}
     customer = user.get("username", "anonymous")
 
     if not query:
         return jsonify({"success": True, "bot": {
-            "source": "system",
+            "source": "system", "stage": "ask",
             "reply": "Please describe your issue so I can help.",
         }, "prediction": None})
 
-    try:
-        # 1) Knowledge base lookup
-        match = kb.lookup(query, category=category)
-
-        if match["matched"]:
-            bot = {
-                "source": "knowledge_base",
-                "reply": match["answer"],
-                "matched_question": match["question"],
-                "score": match["score"],
-                "escalated": False,
-            }
-        else:
-            # 2) Escalate to admin
-            pending = kb.add_pending(query, category, customer=customer)
-            bot = {
-                "source": "escalated",
-                "reply": (
-                    "Thanks for your question. I don't have a verified answer for "
-                    "this yet, so I've forwarded it to our support specialist. "
-                    "You'll get an accurate response once they reply — please check "
-                    "back shortly."
-                ),
-                "escalated": True,
-                "ticket_id": pending["id"],
-                "status": pending["status"],
-            }
-
-        # Satisfaction prediction + logging (best effort)
-        prediction = None
+    def _predict_and_log(text):
         try:
             predictor = get_predictor()
-            prediction = predictor.predict(
-                message=query, category=category,
+            pred = predictor.predict(
+                message=text, category=category,
                 channel=CHANNEL_OPTIONS[0], shift=SHIFT_OPTIONS[0],
                 tenure=TENURE_OPTIONS[0], response_time_minutes=30,
             )
             log_feedback({
-                "message": query, "category": category,
+                "message": text, "category": category,
                 "channel": CHANNEL_OPTIONS[0], "shift": SHIFT_OPTIONS[0],
                 "tenure": TENURE_OPTIONS[0], "response_time_minutes": 30,
                 "issue_hour": 12, "issue_day_of_week": 2,
-            }, prediction)
+            }, pred)
+            return pred
         except Exception as pred_err:
             app.logger.warning("Prediction/logging failed in chat: %s", pred_err)
+            return None
 
-        return jsonify({"success": True, "bot": bot, "prediction": prediction})
+    try:
+        clarifiers = get_clarifiers(category)
+        prediction = None
+
+        # ---- Stage: customer responding to "Did this resolve your issue?" ----
+        if stage == "resolved":
+            ans = query.strip().lower()
+            positive = any(w in ans for w in [
+                "yes", "yeah", "yep", "resolved", "solved", "thanks", "thank",
+                "great", "perfect", "got it", "helps", "helped", "ok", "okay",
+            ])
+            if positive:
+                bot = {
+                    "source": "system", "stage": "ask",
+                    "reply": "Glad I could help! Is there anything else I can assist with?",
+                    "offer_agent": False,
+                }
+                return jsonify({"success": True, "bot": bot, "prediction": None})
+            # Not resolved -> go straight to clarify (bot keeps trying before agent)
+            stage = "ask"
+            original_query = original_query or query
+            query = original_query
+
+        # ---- Stage: initial ask (or still in clarify, re-check KB) ----
+        if stage in ("ask", "clarify"):
+            # Combine the original question with any clarifying answers so far
+            # to give the KB lookup more to work with.
+            combined = " ".join([original_query] + collected + [query]).strip()
+            match = kb.lookup(combined, category=category)
+
+            if match["matched"]:
+                prediction = _predict_and_log(combined)
+                bot = {
+                    "source": "knowledge_base",
+                    "stage": "resolved",
+                    "reply": recommendation_for(category, match["answer"]),
+                    "matched_question": match["question"],
+                    "score": match["score"],
+                    "follow_up": "Did this resolve your issue?",
+                    "offer_agent": False,
+                }
+                return jsonify({"success": True, "bot": bot, "prediction": prediction})
+
+            # No KB match. Walk through clarifying questions one at a time.
+            if stage == "ask":
+                # First miss: open the clarify flow with recommendation + Q1
+                prediction = _predict_and_log(original_query)
+                rec = recommendation_for(category, None)
+                bot = {
+                    "source": "clarify",
+                    "stage": "clarify",
+                    "reply": (
+                        f"{rec}\n\nTo help pinpoint this, {clarifiers[0]}"
+                    ),
+                    "clarify_step": 1,
+                    "original_query": original_query,
+                    "collected": [],
+                    "offer_agent": False,
+                }
+                return jsonify({"success": True, "bot": bot, "prediction": prediction})
+
+            # stage == "clarify": record this answer and ask the next question
+            collected = collected + [query]
+            if clarify_step < len(clarifiers):
+                bot = {
+                    "source": "clarify",
+                    "stage": "clarify",
+                    "reply": f"Thanks. {clarifiers[clarify_step]}",
+                    "clarify_step": clarify_step + 1,
+                    "original_query": original_query,
+                    "collected": collected,
+                    "offer_agent": False,
+                }
+                return jsonify({"success": True, "bot": bot, "prediction": None})
+
+            # Clarifiers exhausted and still no verified answer -> last resort
+            prediction = _predict_and_log(" ".join([original_query] + collected))
+            bot = {
+                "source": "exhausted",
+                "stage": "exhausted",
+                "reply": (
+                    "Thanks for the details. I've shared everything I can from our "
+                    "verified help, but I don't have a confirmed answer for your "
+                    "specific case. I'm sorry I couldn't fully resolve this — let me "
+                    "connect you with a support agent who can."
+                ),
+                "offer_agent": True,
+                "query": " ".join([original_query] + collected),
+                "category": category,
+            }
+            return jsonify({"success": True, "bot": bot, "prediction": prediction})
+
+        # ---- Fallback ----
+        return jsonify({"success": True, "bot": {
+            "source": "system", "stage": "ask",
+            "reply": "How else can I help you?",
+        }, "prediction": None})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/escalate", methods=["POST"])
+@auth.login_required(role="customer")
+def api_escalate():
+    """
+    Customer explicitly chose to chat with an agent. Create a support ticket
+    so the admin is notified. Called only when the user clicks the
+    'Chat with an Agent' button — never automatically.
+    """
+    data = request.get_json(force=True, silent=True) or request.form
+    query = (data.get("query", "") or "").strip()
+    category = data.get("category", SUPPORT_CATEGORIES[0])
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+
+    if not query:
+        return jsonify({"success": False, "error": "No query to escalate"}), 400
+
+    pending = kb.add_pending(query, category, customer=customer)
+    return jsonify({
+        "success": True,
+        "ticket_id": pending["id"],
+        "status": pending["status"],
+        "reply": (
+            "Thanks — I've connected you with a support agent and shared your "
+            "question. An agent will respond here shortly. Your conversation is "
+            "saved, so you can log out and come back to it anytime."
+        ),
+    })
 
 
 @app.route("/api/ticket/<int:ticket_id>")
 @auth.login_required(role="customer")
 def api_ticket_status(ticket_id):
     """Let a customer poll whether their escalated ticket has been answered."""
-    for p in kb.load_pending():
-        if p["id"] == ticket_id:
-            return jsonify({
-                "success": True,
-                "status": p["status"],
-                "answer": p.get("answer"),
-                "query": p["query"],
-            })
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    p = kb.get_pending(ticket_id)
+    if p and p.get("customer") == customer:
+        return jsonify({
+            "success": True,
+            "status": p["status"],
+            "answer": p.get("answer"),
+            "query": p["query"],
+        })
     return jsonify({"success": False, "error": "Ticket not found"}), 404
+
+
+@app.route("/api/my-queries")
+@auth.login_required(role="customer")
+def api_my_queries():
+    """List all of this customer's past queries (retained across logout)."""
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    queries = kb.queries_for_customer(customer)
+    return jsonify({
+        "success": True,
+        "queries": [
+            {
+                "id": q["id"], "query": q["query"], "category": q["category"],
+                "status": q["status"], "created_at": q["created_at"],
+                "answered": q["status"] == "answered",
+                "seen": q.get("customer_seen", False),
+            }
+            for q in queries
+        ],
+    })
+
+
+@app.route("/api/my-queries/<int:ticket_id>")
+@auth.login_required(role="customer")
+def api_my_query_detail(ticket_id):
+    """Return the full conversation for one of the customer's tickets."""
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    p = kb.get_pending(ticket_id)
+    if not p or p.get("customer") != customer:
+        return jsonify({"success": False, "error": "Query not found"}), 404
+    # Opening the ticket marks the agent's answer as seen
+    if p["status"] == "answered" and not p.get("customer_seen", False):
+        kb.mark_customer_seen(ticket_id)
+    return jsonify({
+        "success": True,
+        "ticket": {
+            "id": p["id"], "query": p["query"], "category": p["category"],
+            "status": p["status"], "answer": p.get("answer"),
+            "conversation": p.get("conversation", []),
+            "created_at": p["created_at"], "answered_at": p.get("answered_at"),
+        },
+    })
+
+
+@app.route("/api/customer-notifications")
+@auth.login_required(role="customer")
+def api_customer_notifications():
+    """
+    Return the customer's tickets that an agent answered but the customer
+    hasn't opened yet — powers the 'your query was answered' banner.
+    """
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    unseen = kb.customer_notifications(customer)
+    return jsonify({
+        "success": True,
+        "count": len(unseen),
+        "answered": [
+            {"id": q["id"], "query": q["query"], "answer": q.get("answer"),
+             "category": q["category"]}
+            for q in unseen
+        ],
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +505,26 @@ def api_admin_answer():
 def api_admin_kb():
     """Return the current knowledge base (admin only)."""
     return jsonify({"success": True, "entries": kb.load_kb()})
+
+
+@app.route("/api/admin/notifications")
+@auth.login_required(role="admin")
+def api_admin_notifications():
+    """
+    Poll endpoint for the admin page. Returns the current open queries so the
+    UI can show a popup when a new one arrives.
+    """
+    pending = kb.load_pending()
+    open_q = [p for p in pending if p["status"] == "open"]
+    return jsonify({
+        "success": True,
+        "open_count": len(open_q),
+        "open_queries": [
+            {"id": p["id"], "query": p["query"], "category": p["category"],
+             "customer": p.get("customer", "anonymous"), "created_at": p["created_at"]}
+            for p in open_q
+        ],
+    })
 
 
 @app.route("/health")

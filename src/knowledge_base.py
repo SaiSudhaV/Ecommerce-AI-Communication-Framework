@@ -29,7 +29,24 @@ PENDING_FILE = os.path.join(DATA_DIR, "pending_queries.json")
 # while unrelated questions escalate to the admin.
 MATCH_THRESHOLD = 0.30
 
-_lock = threading.Lock()
+# Reentrant lock so nested lock acquisitions (e.g. a helper that also locks)
+# never deadlock.
+_lock = threading.RLock()
+
+# A small hardcoded fallback used only if the dataset can't be read. On a normal
+# install the knowledge base is built from the dataset (see _ensure_seed_kb).
+_FALLBACK_KB = [
+    {"question": "How do I track my order?",
+     "answer": "You can track your order in real time under My Orders > Track.",
+     "category": "Order Related"},
+    {"question": "How do I return an item?",
+     "answer": "Go to My Orders > Return Item within the return window (7-10 days).",
+     "category": "Returns"},
+    {"question": "When will I get my refund?",
+     "answer": "Refunds reach your original payment method 5-7 business days after "
+               "the returned item is received and inspected.",
+     "category": "Refund Related"},
+]
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +117,51 @@ def _best_match(query, entries):
 # ---------------------------------------------------------------------------
 # Knowledge base API
 # ---------------------------------------------------------------------------
+def _ensure_seed_kb():
+    """
+    Create knowledge_base.json the first time it is needed, built from the
+    dataset's satisfied interactions (csat_score >= 4), one verified entry per
+    sub-category topic. Falls back to a few hardcoded entries if the dataset
+    can't be read. Only runs when the file does not exist, so admin-added
+    answers are never overwritten.
+    """
+    if os.path.exists(KB_FILE):
+        return
+    with _lock:
+        if os.path.exists(KB_FILE):  # re-check inside lock
+            return
+
+        # Build verified entries from the dataset's satisfied interactions.
+        built = []
+        try:
+            from . import kb_builder
+            built = kb_builder.build_entries()
+        except Exception:
+            built = []
+
+        if not built:
+            # Dataset unavailable — use the minimal fallback.
+            now = datetime.now().isoformat(timespec="seconds")
+            built = [{**item, "source": "fallback", "created_at": now}
+                     for item in _FALLBACK_KB]
+
+        seeded = []
+        for i, item in enumerate(built, 1):
+            seeded.append({
+                "id": i,
+                "question": item["question"],
+                "answer": item["answer"],
+                "category": item["category"],
+                "source": item.get("source", "dataset"),
+                "support": item.get("support"),
+                "created_at": item.get("created_at",
+                                       datetime.now().isoformat(timespec="seconds")),
+            })
+        _write_json(KB_FILE, seeded)
+
+
 def load_kb():
+    _ensure_seed_kb()
     return _read_json(KB_FILE, [])
 
 
@@ -132,11 +193,12 @@ def lookup(query, category=None, threshold=MATCH_THRESHOLD):
 
 
 def add_entry(question, answer, category, source="admin"):
-    """Append a new answered Q&A to the knowledge base."""
+    """Append a new answered Q&A to the knowledge base (persisted to disk)."""
     with _lock:
         entries = load_kb()
+        next_id = (max((e["id"] for e in entries), default=0)) + 1
         entries.append({
-            "id": len(entries) + 1,
+            "id": next_id,
             "question": question.strip(),
             "answer": answer.strip(),
             "category": category,
@@ -154,18 +216,20 @@ def load_pending():
     return _read_json(PENDING_FILE, [])
 
 
-def add_pending(query, category, customer=None):
+def add_pending(query, category, customer=None, conversation=None):
     """
     Escalate an unanswered query to the admin queue.
-    Avoids duplicates: if an identical open query exists, reuse it.
+    Avoids duplicates: if an identical open query by the same customer exists,
+    reuse it. Stores the full chat transcript so it is retained after logout.
     """
     with _lock:
         pending = load_pending()
         q_norm = _normalize(query)
         for p in pending:
             if p["status"] == "open" and _normalize(p["query"]) == q_norm \
-                    and p.get("category") == category:
-                return p  # already queued
+                    and p.get("category") == category \
+                    and p.get("customer") == (customer or "anonymous"):
+                return p  # already queued for this customer
 
         entry = {
             "id": (max([p["id"] for p in pending]) + 1) if pending else 1,
@@ -176,6 +240,14 @@ def add_pending(query, category, customer=None):
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "answer": None,
             "answered_at": None,
+            # Full chat transcript — list of {role, text, at}
+            "conversation": conversation or [
+                {"role": "customer", "text": query.strip(),
+                 "at": datetime.now().isoformat(timespec="seconds")}
+            ],
+            # Set True once the customer has seen the agent's answer, so we only
+            # show the "agent replied" notification once.
+            "customer_seen": False,
         }
         pending.append(entry)
         _write_json(PENDING_FILE, pending)
@@ -201,6 +273,13 @@ def answer_pending(pending_id, answer, admin=None):
         target["answer"] = answer.strip()
         target["answered_at"] = datetime.now().isoformat(timespec="seconds")
         target["answered_by"] = admin or "admin"
+        target["customer_seen"] = False  # customer hasn't seen this reply yet
+        # Append the agent's answer to the chat transcript
+        target.setdefault("conversation", []).append({
+            "role": "agent",
+            "text": answer.strip(),
+            "at": target["answered_at"],
+        })
         _write_json(PENDING_FILE, pending)
 
     # Promote to KB (outside lock section re-acquires inside add_entry)
@@ -215,3 +294,63 @@ def pending_counts():
         "answered": sum(1 for p in pending if p["status"] == "answered"),
         "total": len(pending),
     }
+
+
+# ---------------------------------------------------------------------------
+# Customer-facing ticket API (chat history retained across logout)
+# ---------------------------------------------------------------------------
+def queries_for_customer(username):
+    """Return all tickets raised by a customer, newest first."""
+    pending = load_pending()
+    mine = [p for p in pending if p.get("customer") == username]
+    return sorted(mine, key=lambda p: p["id"], reverse=True)
+
+
+def get_pending(ticket_id):
+    """Return a single ticket by id, or None."""
+    for p in load_pending():
+        if p["id"] == int(ticket_id):
+            return p
+    return None
+
+
+def append_message(ticket_id, role, text):
+    """Append a message to a ticket's conversation transcript."""
+    with _lock:
+        pending = load_pending()
+        for p in pending:
+            if p["id"] == int(ticket_id):
+                p.setdefault("conversation", []).append({
+                    "role": role,
+                    "text": text,
+                    "at": datetime.now().isoformat(timespec="seconds"),
+                })
+                _write_json(PENDING_FILE, pending)
+                return p
+    return None
+
+
+def mark_customer_seen(ticket_id):
+    """Mark that the customer has viewed the agent's answer for this ticket."""
+    with _lock:
+        pending = load_pending()
+        for p in pending:
+            if p["id"] == int(ticket_id):
+                p["customer_seen"] = True
+                _write_json(PENDING_FILE, pending)
+                return p
+    return None
+
+
+def customer_notifications(username):
+    """
+    Return tickets for this customer that were answered but not yet seen —
+    used to show the 'your query was answered' banner.
+    """
+    answered_unseen = [
+        p for p in load_pending()
+        if p.get("customer") == username
+        and p["status"] == "answered"
+        and not p.get("customer_seen", False)
+    ]
+    return sorted(answered_unseen, key=lambda p: p["id"], reverse=True)

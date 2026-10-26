@@ -151,3 +151,38 @@ def generate_response(query, category):
         "urgency": urgency,
         "reply": reply,
     }
+
+
+# ---------------------------------------------------------------------------
+# Clarifying-questions flow (asked before escalating to a live agent)
+# ---------------------------------------------------------------------------
+def get_clarifiers(category):
+    """
+    Return a short list of clarifying questions for the category. These are
+    asked one at a time before a query is escalated to an agent, so the bot
+    gathers context and gets a chance to help first.
+    """
+    try:
+        from . import kb_builder
+        return kb_builder.clarifiers_for(category)
+    except Exception:
+        return [
+            "Could you share your order ID or the item name?",
+            "Can you describe exactly what happened or what you need?",
+        ]
+
+
+def recommendation_for(category, kb_answer=None):
+    """
+    Build a general recommendation message for a category. If a verified KB
+    answer is available it is used; otherwise we return category guidance.
+    """
+    if kb_answer:
+        return kb_answer
+    base = CATEGORY_SOLUTIONS.get(category)
+    if base:
+        return "Here's what usually helps:\n" + "\n".join(
+            f"{i}. {s}" for i, s in enumerate(base, 1)
+        )
+    return ("Here's some general guidance: most issues can be resolved from "
+            "My Orders or My Account. Tell me a bit more and I'll help further.")
