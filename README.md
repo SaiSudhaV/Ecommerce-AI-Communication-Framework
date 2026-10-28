@@ -206,11 +206,14 @@ The web UI provides these pages:
 
 | Page | URL | Access | Description |
 |------|-----|--------|-------------|
-| **Dashboard** | `/` | Public | Model comparison, optimization, transformer benchmarking, cross-validation, and top XAI features |
-| **Support Assistant** | `/support` | Customer | Knowledge-base chatbot — answers verified questions instantly, escalates new ones to an admin |
+| **Dashboard** | `/` | Admin | Model comparison, optimization, transformer benchmarking, cross-validation, and top XAI features |
 | **Admin Console** | `/admin` | Admin | Answer escalated customer queries; each answer is saved to the knowledge base |
-| **Live Prediction** | `/predict` | Public | Real-time satisfaction prediction with confidence scores |
-| **Visualizations** | `/visualizations` | Public | Gallery of generated charts (confusion matrices, ROC curves, SHAP) |
+| **Live Prediction** | `/predict` | Admin | Real-time satisfaction prediction with confidence scores |
+| **Visualizations** | `/visualizations` | Admin | Gallery of generated charts (confusion matrices, ROC curves, SHAP) |
+| **Support Assistant** | `/support` | Customer | Guided chatbot — verified answers, clarifying questions, then a live agent as the last resort |
+| **My Queries** | `/my-queries` | Customer | The customer's answered queries with the agent's reply, plus queries still waiting |
+
+The ML dashboards are admin-only. Opening `/` sends a customer to the Support Assistant and an anonymous visitor to the login page. A customer who tries a dashboard URL is redirected, and the dashboard APIs return `403`.
 
 **REST API endpoints:**
 
@@ -220,8 +223,8 @@ The web UI provides these pages:
 | `/api/ticket/<id>` | GET | Customer | Poll an escalated ticket for the admin's answer |
 | `/api/admin/answer` | POST | Admin | Answer a ticket. Body: `{ticket_id, answer}` → promotes the Q&A into the knowledge base |
 | `/api/admin/kb` | GET | Admin | View the current knowledge base |
-| `/api/predict` | POST | Public | JSON prediction. Body: `{message, category, channel, shift, tenure, response_time_minutes, issue_hour}` |
-| `/api/results` | GET | Public | Returns full pipeline results as JSON |
+| `/api/predict` | POST | Admin | JSON prediction. Body: `{message, category, channel, shift, tenure, response_time_minutes, issue_hour}` |
+| `/api/results` | GET | Admin | Returns full pipeline results as JSON |
 | `/health` | GET | Public | Health check |
 
 Example API call:
@@ -286,9 +289,19 @@ All verified answers and support tickets are **retained across sessions, server 
 
 Because writes are atomic (temp file + rename), state is never corrupted even if the server stops mid-write. Nothing is held only in memory — closing or exiting the app never loses answered queries.
 
-### Making a Prediction (Step by Step)
+**Data safety guarantees** (`src/storage.py`):
+- **Automatic backups** — every save of `users.json`, `knowledge_base.json`, or `pending_queries.json` is snapshotted to `data/backups/` (the last 50 versions per file are kept). To roll back, copy a backup over the live file while the app is stopped.
+- **No silent overwrite of a damaged file** — if a file can't be read, it is kept as `<name>.corrupt-<timestamp>` and the newest backup is restored. It is never treated as empty, so registered users and answers are never reset.
+- **No shrinking writes** — these files only grow. Any save that would leave fewer records than are on disk is refused.
+- **Isolated testing** — set `APP_DATA_DIR` to run the app against a different folder, so tests never touch the real `data/`:
+  ```bash
+  APP_DATA_DIR=/tmp/appdata-test PORT=5099 python app.py
+  ```
+- The original dataset (`cumulative_ai_customer_communication_dataset.csv`) is read-only to the app.
 
-1. Click **Live Prediction** in the top navigation bar.
+### Making a Prediction (Step by Step, admin only)
+
+1. Log in as `admin` and click **Live Prediction** in the top navigation bar.
 2. Fill in the interaction fields:
    - **Customer Message** — the text the customer wrote (this is the most important input)
    - **Category** — the type of issue (Returns, Refund Related, Order Related, etc.)

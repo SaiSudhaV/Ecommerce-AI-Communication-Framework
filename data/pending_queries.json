@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "query": "Need GST invoice change",
+    "category": "Order Related",
+    "customer": "customer",
+    "status": "answered",
+    "created_at": "2026-10-26T15:36:01",
+    "answer": "Edit GST details under My Orders > Invoice.",
+    "answered_at": "2026-10-26T15:36:01",
+    "conversation": [
+      {
+        "role": "customer",
+        "text": "Need GST invoice change",
+        "at": "2026-10-26T15:36:01"
+      },
+      {
+        "role": "agent",
+        "text": "Edit GST details under My Orders > Invoice.",
+        "at": "2026-10-26T15:36:01"
+      }
+    ],
+    "customer_seen": true,
+    "answered_by": "admin"
+  },
+  {
+    "id": 2,
+    "query": "Need GST invoice change",
+    "category": "Order Related",
+    "customer": "customer",
+    "status": "answered",
+    "created_at": "2026-10-26T15:36:03",
+    "answer": "Edit GST details under My Orders > Invoice.",
+    "answered_at": "2026-10-26T15:36:03",
+    "conversation": [
+      {
+        "role": "customer",
+        "text": "Need GST invoice change",
+        "at": "2026-10-26T15:36:03"
+      },
+      {
+        "role": "agent",
+        "text": "Edit GST details under My Orders > Invoice.",
+        "at": "2026-10-26T15:36:03"
+      }
+    ],
+    "customer_seen": true,
+    "answered_by": "admin"
+  }
+]

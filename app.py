@@ -124,10 +124,22 @@ def logout():
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
+    """
+    Role-based landing page. The ML dashboard is admin-only:
+      - not logged in -> login page
+      - customer      -> support assistant
+      - admin         -> dashboard
+    """
+    user = auth.current_user()
+    if user is None:
+        return redirect(url_for("login_page"))
+    if user["role"] != "admin":
+        return redirect(url_for("support_page"))
     return render_template("index.html", results=load_results(), active="dashboard")
 
 
 @app.route("/predict", methods=["GET"])
+@auth.login_required(role="admin")
 def predict_page():
     return render_template(
         "predict.html", active="predict",
@@ -137,6 +149,7 @@ def predict_page():
 
 
 @app.route("/api/predict", methods=["POST"])
+@auth.login_required(role="admin")
 def api_predict():
     data = request.get_json(force=True, silent=True) or request.form
     inputs = {
@@ -162,16 +175,19 @@ def api_predict():
 
 
 @app.route("/visualizations")
+@auth.login_required(role="admin")
 def visualizations():
     return render_template("visualizations.html", active="viz", images=list_result_images())
 
 
 @app.route("/results-image/<path:filename>")
+@auth.login_required(role="admin")
 def results_image(filename):
     return send_from_directory(RESULTS_DIR, filename)
 
 
 @app.route("/api/results")
+@auth.login_required(role="admin")
 def api_results():
     results = load_results()
     if results is None:
@@ -296,7 +312,7 @@ def api_chat():
                     "follow_up": "Did this resolve your issue?",
                     "offer_agent": False,
                 }
-                return jsonify({"success": True, "bot": bot, "prediction": prediction})
+                return jsonify({"success": True, "bot": bot, "prediction": None})
 
             # No KB match. Walk through clarifying questions one at a time.
             if stage == "ask":
@@ -314,7 +330,7 @@ def api_chat():
                     "collected": [],
                     "offer_agent": False,
                 }
-                return jsonify({"success": True, "bot": bot, "prediction": prediction})
+                return jsonify({"success": True, "bot": bot, "prediction": None})
 
             # stage == "clarify": record this answer and ask the next question
             collected = collected + [query]
@@ -345,7 +361,7 @@ def api_chat():
                 "query": " ".join([original_query] + collected),
                 "category": category,
             }
-            return jsonify({"success": True, "bot": bot, "prediction": prediction})
+            return jsonify({"success": True, "bot": bot, "prediction": None})
 
         # ---- Fallback ----
         return jsonify({"success": True, "bot": {
@@ -354,6 +370,25 @@ def api_chat():
         }, "prediction": None})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/my-queries")
+@auth.login_required(role="customer")
+def my_queries_page():
+    """Customer page listing their answered (addressed) and waiting queries."""
+    user = auth.current_user() or {}
+    customer = user.get("username", "anonymous")
+    queries = kb.queries_for_customer(customer)
+    answered = [q for q in queries if q["status"] == "answered"]
+    waiting = [q for q in queries if q["status"] != "answered"]
+    # Viewing this page counts as seeing the agent replies
+    for q in answered:
+        if not q.get("customer_seen", False):
+            kb.mark_customer_seen(q["id"])
+    return render_template(
+        "my_queries.html", active="my_queries",
+        answered=answered, waiting=waiting,
+    )
 
 
 @app.route("/api/escalate", methods=["POST"])

@@ -21,7 +21,10 @@ DATASET_CSV = os.path.join(DATA_DIR, "cumulative_ai_customer_communication_datas
 DATASET_GZ = DATASET_CSV + ".gz"
 
 # New user-submitted interactions are appended here for future retraining.
-FEEDBACK_CSV = os.path.join(DATA_DIR, "user_feedback_log.csv")
+# Append-only, so existing rows are never rewritten. Lives in the runtime data
+# folder (APP_DATA_DIR overrides it, e.g. for tests).
+from src import storage as _storage
+FEEDBACK_CSV = _storage.runtime_path("user_feedback_log.csv")
 FEEDBACK_COLUMNS = [
     "timestamp", "customer_message", "category", "channel_name",
     "agent_shift", "tenure_bucket", "response_time_minutes", "issue_hour",

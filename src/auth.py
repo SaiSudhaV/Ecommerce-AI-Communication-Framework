@@ -21,9 +21,10 @@ from functools import wraps
 
 from flask import session, redirect, url_for, request, jsonify
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
+from . import storage
+
+DATA_DIR = storage.RUNTIME_DIR
+USERS_FILE = storage.runtime_path("users.json")
 
 # Reentrant lock: register_user() holds the lock and then calls _ensure_seed(),
 # which also acquires it. A plain Lock would deadlock on that re-entry.
@@ -41,21 +42,14 @@ def _hash_password(password, salt):
 
 
 def _read_users():
-    if not os.path.exists(USERS_FILE):
-        return None
-    try:
-        with open(USERS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
+    # None only when the file truly doesn't exist yet. A corrupt file is
+    # restored from backup (or raises) — it must never trigger reseeding,
+    # which would overwrite every registered account.
+    return storage.read_json(USERS_FILE, None)
 
 
 def _write_users(users):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    tmp = USERS_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(users, f, indent=2)
-    os.replace(tmp, USERS_FILE)
+    storage.write_json(USERS_FILE, users)
 
 
 def _ensure_seed():

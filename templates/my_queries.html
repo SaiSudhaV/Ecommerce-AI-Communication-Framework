@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}My Queries - Ecommerce AI Communication Framework{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <h1>My Queries</h1>
+    <p class="subtitle">
+        Questions you sent to our support agents. Answered queries show the
+        agent's reply. Your history is kept even after you log out.
+    </p>
+</section>
+
+<div class="cards cards-2">
+    <div class="card stat">
+        <div class="stat-label">Answered</div>
+        <div class="stat-value">{{ answered | length }}</div>
+        <div class="stat-sub">addressed by an agent</div>
+    </div>
+    <div class="card stat">
+        <div class="stat-label">Waiting</div>
+        <div class="stat-value">{{ waiting | length }}</div>
+        <div class="stat-sub">agent will reply soon</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Answered Queries</h2>
+    {% if not answered %}
+        <p class="section-note">
+            No answered queries yet. When an agent replies to one of your
+            questions, it will appear here.
+        </p>
+    {% else %}
+        {% for q in answered %}
+        <div class="mq-item">
+            <div class="query-head">
+                <span class="query-cat">{{ q.category }}</span>
+                <span class="query-meta">Ticket #{{ q.id }} &middot; asked {{ q.created_at }}</span>
+            </div>
+            <div class="mq-label">Your question</div>
+            <div class="query-text">{{ q.query }}</div>
+            <div class="mq-label">Agent's answer
+                {% if q.answered_at %}<span class="query-meta">&middot; {{ q.answered_at }}</span>{% endif %}
+            </div>
+            <div class="mq-answer">{{ q.answer }}</div>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+{% if waiting %}
+<div class="card">
+    <h2>Waiting for an Agent</h2>
+    {% for q in waiting %}
+    <div class="mq-item mq-waiting">
+        <div class="query-head">
+            <span class="query-cat">{{ q.category }}</span>
+            <span class="query-meta">Ticket #{{ q.id }} &middot; asked {{ q.created_at }}</span>
+        </div>
+        <div class="query-text">{{ q.query }}</div>
+        <div class="agent-wait"><span class="dot"></span> An agent will reply soon. You'll see a notification on the Support page.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<p class="section-note">
+    Need help with something else? <a href="{{ url_for('support_page') }}">Ask the Support Assistant</a>.
+</p>
+{% endblock %}

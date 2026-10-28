@@ -18,11 +18,14 @@ import re
 import threading
 from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+from . import storage
 
-KB_FILE = os.path.join(DATA_DIR, "knowledge_base.json")
-PENDING_FILE = os.path.join(DATA_DIR, "pending_queries.json")
+# Runtime files live in storage.RUNTIME_DIR (data/ by default). All reads and
+# writes go through storage, which backs up, refuses shrinking writes, and
+# never treats a corrupt file as empty.
+DATA_DIR = storage.RUNTIME_DIR
+KB_FILE = storage.runtime_path("knowledge_base.json")
+PENDING_FILE = storage.runtime_path("pending_queries.json")
 
 # Minimum cosine similarity for a KB hit (0-1). Tuned so paraphrased questions
 # ("Do you offer gift wrapping?" vs "Can I get gift wrapping?") still match,
@@ -53,21 +56,13 @@ _FALLBACK_KB = [
 # Low-level JSON helpers
 # ---------------------------------------------------------------------------
 def _read_json(path, default):
-    if not os.path.exists(path):
-        return default
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return default
+    # Corrupt files are restored from backup, never read as empty.
+    return storage.read_json(path, default)
 
 
 def _write_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, path)
+    # Backs up the previous version and refuses writes that drop records.
+    storage.write_json(path, data)
 
 
 def _normalize(text):

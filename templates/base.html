@@ -13,15 +13,16 @@
             <span class="brand-text">Ecommerce AI Communication Framework</span>
         </div>
         <nav class="nav">
-            <a href="{{ url_for('index') }}" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
-            {% if current_user and current_user.role == 'customer' %}
-            <a href="{{ url_for('support_page') }}" class="{% if active == 'support' %}active{% endif %}">Support Assistant</a>
-            {% endif %}
             {% if current_user and current_user.role == 'admin' %}
+            {# Dashboards and ML tools are admin-only #}
+            <a href="{{ url_for('index') }}" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
             <a href="{{ url_for('admin_page') }}" class="{% if active == 'admin' %}active{% endif %}">Admin Console</a>
-            {% endif %}
             <a href="{{ url_for('predict_page') }}" class="{% if active == 'predict' %}active{% endif %}">Live Prediction</a>
             <a href="{{ url_for('visualizations') }}" class="{% if active == 'viz' %}active{% endif %}">Visualizations</a>
+            {% elif current_user and current_user.role == 'customer' %}
+            <a href="{{ url_for('support_page') }}" class="{% if active == 'support' %}active{% endif %}">Support Assistant</a>
+            <a href="{{ url_for('my_queries_page') }}" class="{% if active == 'my_queries' %}active{% endif %}">My Queries</a>
+            {% endif %}
             {% if current_user %}
             <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
             <a href="{{ url_for('logout') }}" class="nav-logout">Logout</a>

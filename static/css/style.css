@@ -707,3 +707,30 @@ form textarea:focus, form select:focus, form input:focus {
     padding: 7px 12px;
     margin: 0;
 }
+
+/* ===== Customer: My Queries page ===== */
+.cards-2 { grid-template-columns: repeat(2, 1fr); }
+.mq-item {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+.mq-waiting { border-style: dashed; }
+.mq-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-dim);
+    margin: 10px 0 6px;
+    font-weight: 600;
+}
+.mq-answer {
+    font-size: 15px;
+    padding: 10px 12px;
+    background: rgba(52, 211, 153, 0.08);
+    border-left: 3px solid var(--pos);
+    border-radius: 8px;
+    line-height: 1.55;
+}
+.section-note a { color: var(--primary); }

@@ -155,13 +155,6 @@ function addBotMsg(bot, prediction) {
         if (bot.stage !== 'resolved') { /* resolved waits for yes/no */ }
     }
 
-    let predHtml = '';
-    if (prediction) {
-        const cls = prediction.label === 1 ? 'pos' : 'neg';
-        predHtml = `<div class="sentiment ${cls}">
-            Predicted sentiment: <strong>${escapeHtml(prediction.prediction)}</strong>
-            (${prediction.confidence}% confidence)</div>`;
-    }
 
     // Follow-up prompt after a verified answer ("Did this resolve your issue?")
     let followHtml = '';
@@ -186,7 +179,7 @@ function addBotMsg(bot, prediction) {
     const el = document.createElement('div');
     el.className = 'chat-msg bot';
     el.innerHTML = `<div class="avatar">&#129302;</div>
-        <div class="bubble">${sourceBadge(bot)}${formatReply(bot.reply)}${predHtml}${followHtml}${agentHtml}</div>`;
+        <div class="bubble">${sourceBadge(bot)}${formatReply(bot.reply)}${followHtml}${agentHtml}</div>`;
     win.appendChild(el);
     win.scrollTop = win.scrollHeight;
 

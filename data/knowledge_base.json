@@ -1,0 +1,486 @@
+[
+  {
+    "id": 1,
+    "question": "Reverse Pickup Enquiry (Returns)",
+    "answer": "For a reverse pickup, go to My Orders > Return/Replace and choose a pickup slot. You'll get an SMS/email with the pickup date. Keep the item in its original packaging with all tags and accessories ready for the agent.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 18139,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 2,
+    "question": "Return request (Returns)",
+    "answer": "To raise a return, open My Orders > Return Item within the return window (usually 7-10 days of delivery). Select a reason, choose refund or replacement, and a prepaid return label is emailed to you.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 7899,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 3,
+    "question": "Delayed (Order Related)",
+    "answer": "If your order is delayed, check live status under My Orders > Track. Most delayed orders arrive within 3-5 business days. If tracking hasn't updated in 48 hours, we can raise a delivery investigation for you.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 5669,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 4,
+    "question": "Order status enquiry (Order Related)",
+    "answer": "You can see your order's current status any time under My Orders > Track. The page shows dispatch, in-transit, and out-for-delivery stages with the expected date.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 5641,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 5,
+    "question": "Fraudulent User (Returns)",
+    "answer": "If you suspect fraudulent activity on your account or an order you did not place, change your password immediately and report it under Help > Report Fraud. We will secure the account and investigate.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 3774,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 6,
+    "question": "Installation/demo (Order Related)",
+    "answer": "Installation or demo for eligible products is scheduled after delivery. Track or reschedule it under My Orders > Services. A technician visit is usually arranged within 2-4 business days.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 2977,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 7,
+    "question": "Product Specific Information (Product Queries)",
+    "answer": "Detailed specifications, size guides, warranty, and reviews are on the product page. For compatibility or usage questions, share the product name and we'll pull the details.",
+    "category": "Product Queries",
+    "source": "dataset",
+    "support": 2767,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 8,
+    "question": "Missing (Returns)",
+    "answer": "If an item is missing from your delivery, report it under My Orders > Report an Issue within 48 hours. We'll verify the package weight/scan and arrange the missing item or a refund.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 2348,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 9,
+    "question": "Wrong (Returns)",
+    "answer": "Received the wrong item? Start a return under My Orders > Return Item and select 'Wrong item received'. We'll arrange a free pickup and send the correct product or issue a refund.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 2339,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 10,
+    "question": "Refund Enquiry (Refund Related)",
+    "answer": "Refunds are issued to your original payment method once the returned item is received and inspected. Bank refunds take 5-7 business days; wallet/store-credit refunds are usually instant. Track it under My Orders > Refund Status.",
+    "category": "Refund Related",
+    "source": "dataset",
+    "support": 2246,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 11,
+    "question": "UnProfessional Behaviour (Feedback)",
+    "answer": "We're sorry about your experience. Please share the order ID and what happened under Help > Feedback. We take agent conduct seriously and will review it with the team.",
+    "category": "Feedback",
+    "source": "dataset",
+    "support": 1832,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 12,
+    "question": "Service Centres Related (Returns)",
+    "answer": "To find an authorised service centre, go to My Orders > Services > Locate Centre and enter your pincode. Carry the invoice and warranty card for in-warranty service.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 1487,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 13,
+    "question": "Refund Related Issues (Refund Related)",
+    "answer": "If a refund is delayed beyond the expected window, verify the refund reference under My Orders > Refund Status. If it's still pending after 7 business days, we can escalate it for a priority review.",
+    "category": "Refund Related",
+    "source": "dataset",
+    "support": 1437,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 14,
+    "question": "Not Needed (Cancellation)",
+    "answer": "To cancel an order you no longer need, go to My Orders > Cancel as long as it hasn't shipped. Any amount paid is refunded automatically after cancellation.",
+    "category": "Cancellation",
+    "source": "dataset",
+    "support": 1425,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 15,
+    "question": "General Enquiry (Shopzilla Related)",
+    "answer": "You can manage most things under My Account and My Orders. Tell me a bit more about what you need and I'll point you to the right place.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 1381,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 16,
+    "question": "Invoice request (Order Related)",
+    "answer": "Download your invoice any time under My Orders > Invoice > Download. A GST invoice is available for eligible orders.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 1291,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 17,
+    "question": "Online Payment Issues (Payments related)",
+    "answer": "If a payment failed but money was deducted, it is auto-reversed within 3-5 business days. If the order wasn't confirmed, share the transaction ID and we'll verify it.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 942,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 18,
+    "question": "Priority delivery (Order Related)",
+    "answer": "Priority or faster delivery options, where available, are shown at checkout for your pincode. Already-placed orders can't be upgraded to priority after dispatch.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 858,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 19,
+    "question": "Customer Requested Modifications (Order Related)",
+    "answer": "Address or item changes are possible only before the order ships. Go to My Orders > Edit Order. After dispatch, you can refuse delivery or use the return flow.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 723,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 20,
+    "question": "Seller Cancelled Order (Order Related)",
+    "answer": "If a seller cancelled your order, any amount paid is refunded in full automatically. You can reorder from another seller on the product page.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 693,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 21,
+    "question": "Exchange / Replacement (Returns)",
+    "answer": "To exchange or replace an item, use My Orders > Return/Replace and pick 'Replacement'. The new item ships once the pickup is completed.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 687,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 22,
+    "question": "Payment related Queries (Payments related)",
+    "answer": "We support cards, UPI, net banking, and wallets. For EMI or coupon issues, confirm the offer conditions (minimum value, eligible cards) are met at checkout.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 617,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 23,
+    "question": "Signup Issues (Shopzilla Related)",
+    "answer": "If you're having trouble signing up, make sure your email/phone isn't already registered. Clear the app cache or try a different browser, then request a fresh OTP.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 454,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 24,
+    "question": "Damaged (Returns)",
+    "answer": "Sorry your item arrived damaged. Start a return under My Orders > Return Item and select 'Damaged'. You're eligible for a free replacement or a full refund.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 432,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 25,
+    "question": "Shopzila Premium Related (Shopzilla Related)",
+    "answer": "For 'Shopzila Premium Related' under Shopzilla Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 319,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 26,
+    "question": "Return cancellation (Cancellation)",
+    "answer": "For 'Return cancellation' under Cancellation, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Cancellation",
+    "source": "dataset",
+    "support": 254,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 27,
+    "question": "Technician Visit (Returns)",
+    "answer": "For 'Technician Visit' under Returns, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 242,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 28,
+    "question": "Wallet related (Payments related)",
+    "answer": "For 'Wallet related' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 195,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 29,
+    "question": "General Enquiry (Order Related)",
+    "answer": "You can manage most things under My Account and My Orders. Tell me a bit more about what you need and I'll point you to the right place.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 193,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 30,
+    "question": "Other Cashback (Offers & Cashback)",
+    "answer": "For 'Other Cashback' under Offers & Cashback, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Offers & Cashback",
+    "source": "dataset",
+    "support": 181,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 31,
+    "question": "Product related Issues (Returns)",
+    "answer": "For 'Product related Issues' under Returns, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 162,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 32,
+    "question": "Affiliate Offers (Offers & Cashback)",
+    "answer": "For 'Affiliate Offers' under Offers & Cashback, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Offers & Cashback",
+    "source": "dataset",
+    "support": 145,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 33,
+    "question": "Unable to track (Order Related)",
+    "answer": "For 'Unable to track' under Order Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 133,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 34,
+    "question": "PayLater related (Payments related)",
+    "answer": "For 'PayLater related' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 121,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 35,
+    "question": "Account updation (Shopzilla Related)",
+    "answer": "For 'Account updation' under Shopzilla Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 105,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 36,
+    "question": "Instant discount (Offers & Cashback)",
+    "answer": "For 'Instant discount' under Offers & Cashback, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Offers & Cashback",
+    "source": "dataset",
+    "support": 72,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 37,
+    "question": "Shopzilla Rewards (Shopzilla Related)",
+    "answer": "For 'Shopzilla Rewards' under Shopzilla Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 69,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 38,
+    "question": "Issues with Shopzilla App (App/website)",
+    "answer": "For 'Issues with Shopzilla App' under App/website, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "App/website",
+    "source": "dataset",
+    "support": 64,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 39,
+    "question": "COD Refund Details (Refund Related)",
+    "answer": "For 'COD Refund Details' under Refund Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Refund Related",
+    "source": "dataset",
+    "support": 63,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 40,
+    "question": "Order Verification (Order Related)",
+    "answer": "For 'Order Verification' under Order Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Order Related",
+    "source": "dataset",
+    "support": 59,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 41,
+    "question": "Warranty related (Product Queries)",
+    "answer": "For 'Warranty related' under Product Queries, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Product Queries",
+    "source": "dataset",
+    "support": 54,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 42,
+    "question": "Seller onboarding (Onboarding related)",
+    "answer": "For 'Seller onboarding' under Onboarding related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Onboarding related",
+    "source": "dataset",
+    "support": 52,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 43,
+    "question": "Billing Related (Payments related)",
+    "answer": "For 'Billing Related' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 52,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 44,
+    "question": "Self-Help (Returns)",
+    "answer": "For 'Self-Help' under Returns, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 39,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 45,
+    "question": "Service Center - Service Denial (Returns)",
+    "answer": "For 'Service Center - Service Denial' under Returns, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Returns",
+    "source": "dataset",
+    "support": 35,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 46,
+    "question": "e-Gift Voucher (Payments related)",
+    "answer": "For 'e-Gift Voucher' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 30,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 47,
+    "question": "Call back request (Others)",
+    "answer": "For 'Call back request' under Others, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Others",
+    "source": "dataset",
+    "support": 28,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 48,
+    "question": "Call disconnected (Others)",
+    "answer": "For 'Call disconnected' under Others, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Others",
+    "source": "dataset",
+    "support": 22,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 49,
+    "question": "Life Insurance (Product Queries)",
+    "answer": "For 'Life Insurance' under Product Queries, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Product Queries",
+    "source": "dataset",
+    "support": 17,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 50,
+    "question": "Other Account Related Issues (Shopzilla Related)",
+    "answer": "For 'Other Account Related Issues' under Shopzilla Related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Shopzilla Related",
+    "source": "dataset",
+    "support": 15,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 51,
+    "question": "Payment pending (Payments related)",
+    "answer": "For 'Payment pending' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 15,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 52,
+    "question": "Card/EMI (Payments related)",
+    "answer": "For 'Card/EMI' under Payments related, you can usually resolve this from My Orders or My Account. Open the related order, choose the matching option, and follow the on-screen steps. If you still need help, I can connect you with an agent.",
+    "category": "Payments related",
+    "source": "dataset",
+    "support": 13,
+    "created_at": "2026-10-26T15:26:37"
+  },
+  {
+    "id": 53,
+    "question": "Need GST invoice change",
+    "answer": "Edit GST details under My Orders > Invoice.",
+    "category": "Order Related",
+    "source": "admin",
+    "created_at": "2026-10-26T15:36:01"
+  },
+  {
+    "id": 54,
+    "question": "Need GST invoice change",
+    "answer": "Edit GST details under My Orders > Invoice.",
+    "category": "Order Related",
+    "source": "admin",
+    "created_at": "2026-10-26T15:36:03"
+  }
+]
